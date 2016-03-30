@@ -102,6 +102,7 @@ android {
             buildConfigField "boolean", "FIXED_REGION_SUPPORTS_SIRI_REALTIME_APIS", "false"
             buildConfigField "String", "FIXED_REGION_TWITTER_URL", "null"
             buildConfigField "String", "FIXED_REGION_STOP_INFO_URL", "null"
+            buildConfigField "String", "FIXED_REGION_OTP_BASE_URL", "null"
         }
 
         /**
@@ -135,6 +136,7 @@ android {
             buildConfigField "boolean", "FIXED_REGION_SUPPORTS_SIRI_REALTIME_APIS", "false"
             buildConfigField "String", "FIXED_REGION_TWITTER_URL", "null"
             buildConfigField "String", "FIXED_REGION_STOP_INFO_URL", "null"
+            buildConfigField "String", "FIXED_REGION_OTP_BASE_URL", "null"
         }
 
         agencyY {
@@ -161,6 +163,7 @@ android {
             buildConfigField "String", "FIXED_REGION_TWITTER_URL",
                     "\"http://mobile.twitter.com/OBA_tampa\""
             buildConfigField "String", "FIXED_REGION_STOP_INFO_URL", "null"
+            buildConfigField "String", "FIXED_REGION_OTP_BASE_URL", "null"
         }
 
         /**

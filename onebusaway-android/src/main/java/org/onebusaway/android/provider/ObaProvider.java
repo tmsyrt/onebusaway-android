@@ -43,7 +43,7 @@ public class ObaProvider extends ContentProvider {
 
     private class OpenHelper extends SQLiteOpenHelper {
 
-        private static final int DATABASE_VERSION = 22;
+        private static final int DATABASE_VERSION = 23;
 
         public OpenHelper(Context context) {
             super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -208,6 +208,12 @@ public class ObaProvider extends ContentProvider {
                                 ObaContract.RouteHeadsignFavorites.STOP_ID + " VARCHAR NOT NULL, " +
                                 ObaContract.RouteHeadsignFavorites.EXCLUDE + " INTEGER NOT NULL " +
                                 ");");
+                ++oldVersion;
+            }
+            if (oldVersion == 22) {
+                db.execSQL(
+                        "ALTER TABLE " + ObaContract.Regions.PATH +
+                                " ADD COLUMN " + ObaContract.Regions.OTP_BASE_URL + " VARCHAR");
             }
         }
 
@@ -427,6 +433,8 @@ public class ObaProvider extends ContentProvider {
                 .put(ObaContract.Regions.EXPERIMENTAL, ObaContract.Regions.EXPERIMENTAL);
         sRegionsProjectionMap
                 .put(ObaContract.Regions.STOP_INFO_URL, ObaContract.Regions.STOP_INFO_URL);
+        sRegionsProjectionMap
+                .put(ObaContract.Regions.OTP_BASE_URL, ObaContract.Regions.OTP_BASE_URL);
 
         sRegionBoundsProjectionMap = new HashMap<String, String>();
         sRegionBoundsProjectionMap.put(ObaContract.RegionBounds._ID, ObaContract.RegionBounds._ID);
