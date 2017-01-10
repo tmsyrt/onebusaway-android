@@ -1,5 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
-<!-- Copyright (C) 2010 Paul Watts (paulcwatts@gmail.com)
+<?xml version="1.0" encoding="utf-8"?><!-- Copyright (C) 2017 Paul Watts (paulcwatts@gmail.com), Sean J. Barbeau (sjbarbeau@gmail.com)
 
      Licensed under the Apache License, Version 2.0 (the "License");
      you may not use this file except in compliance with the License.
@@ -20,42 +19,24 @@
                 android:layout_width="fill_parent"
                 android:minHeight="77dp"
                 android:orientation="horizontal">
-    <ImageView
-            android:id="@+id/stop_favorite"
-            android:src="@drawable/ic_toggle_star"
-            android:contentDescription="@string/stop_info_favorite"
-            android:layout_width="wrap_content"
-            android:layout_height="wrap_content"
-            android:scaleType="fitCenter"
-            android:adjustViewBounds="true"
-            android:maxHeight="25dp"
-            android:maxWidth="25dp"
-            android:layout_marginLeft="5dp"
-            android:layout_centerVertical="true"
-            android:layout_alignParentLeft="true"
-            android:visibility="gone"/>
 
-    <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-                  style="@style/ListItem"
-                  android:layout_marginLeft="@dimen/keyline_2"
-                  android:layout_alignParentLeft="true"
-                  android:layout_centerVertical="true"
-                  android:layout_width="fill_parent"
-                  android:layout_height="wrap_content"
-                  android:orientation="vertical">
-        <TextView
-                android:id="@+id/stop_name"
-                style="@style/Line1Text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_gravity="center_vertical"
-                android:ellipsize="end"
-                android:maxLines="1"/>
-        <TextView
-                android:id="@+id/direction"
-                style="@style/Line2Text"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content">
-        </TextView>
-    </LinearLayout>
+    <android.support.v7.widget.CardView xmlns:android="http://schemas.android.com/apk/res/android"
+        xmlns:card_view="http://schemas.android.com/apk/res-auto"
+        android:id="@+id/arrivals_card_view"
+        android:layout_gravity="center"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        card_view:cardBackgroundColor="@color/theme_primary"
+        card_view:cardUseCompatPadding="true"
+        card_view:cardCornerRadius="4dp">
+
+        <include
+            android:id="@+id/main_header_content"
+            layout="@layout/arrivals_list_header_row_template"
+            android:layout_width="match_parent"
+            android:layout_height="@dimen/arrival_header_height_two_arrivals"
+            android:layout_alignParentTop="true"
+            android:layout_above="@+id/filter_group"
+            android:orientation="vertical" />
+    </android.support.v7.widget.CardView>
 </RelativeLayout>

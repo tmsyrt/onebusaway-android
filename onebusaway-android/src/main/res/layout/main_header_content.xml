@@ -1,0 +1,198 @@
+<?xml version="1.0" encoding="utf-8"?><!-- Copyright (C) 2011-2017 Paul Watts (paulcwatts@gmail.com),
+    University of South Florida (sjbarbeau@gmail.com)
+
+    Licensed under the Apache License, Version 2.0 (the "License");
+    you may not use this file except in compliance with the License.
+    You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+    Unless required by applicable law or agreed to in writing, software
+    distributed under the License is distributed on an "AS IS" BASIS,
+    WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+    See the License for the specific language governing permissions and
+    limitations under the License.
+-->
+<RelativeLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    style="@style/HeaderItem"
+    android:id="@+id/main_header_content"
+    android:layout_width="match_parent"
+    android:layout_height="@dimen/arrival_header_height_two_arrivals"
+    android:layout_alignParentTop="true"
+    android:layout_above="@+id/filter_group"
+    android:orientation="vertical">
+
+    <LinearLayout
+        android:id="@+id/edit_name_container"
+        android:orientation="vertical"
+        android:layout_width="fill_parent"
+        android:layout_height="wrap_content"
+        android:layout_centerInParent="true"
+        android:visibility="gone">
+        <!--  NOTE: I'm sure there's a way to have a textview
+          switch between displaying itself as an edittext
+          and a regular text, but this method will be
+          guaranteed to work across any release -->
+        <EditText
+            android:id="@+id/edit_name"
+            style="@style/HeaderText"
+            android:textCursorDrawable="@null"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:inputType="text"
+            android:imeOptions="actionDone" />
+
+        <LinearLayout
+            android:orientation="horizontal"
+            android:layout_width="fill_parent"
+            android:layout_height="wrap_content"
+            android:paddingLeft="10dip"
+            android:paddingRight="10dip"
+            android:gravity="center">
+
+            <Button
+                android:id="@+id/edit_name_cancel"
+                style="@style/Header2Text"
+                android:text="@string/stop_info_cancel"
+                android:layout_height="wrap_content"
+                android:layout_width="0dip"
+                android:layout_weight="1" />
+
+            <Button
+                android:id="@+id/edit_name_save"
+                style="@style/Header2Text"
+                android:text="@string/stop_info_save"
+                android:layout_height="wrap_content"
+                android:layout_width="0dip"
+                android:layout_weight="1" />
+
+            <Button
+                android:id="@+id/edit_name_revert"
+                style="@style/Header2Text"
+                android:text="@string/stop_info_clear"
+                android:layout_height="wrap_content"
+                android:layout_width="0dip"
+                android:layout_weight="1" />
+        </LinearLayout>
+    </LinearLayout>
+
+    <TableLayout xmlns:android="http://schemas.android.com/apk/res/android"
+        android:id="@+id/eta_table"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:stretchColumns="1, 2"
+        android:shrinkColumns="1"
+        android:layout_above="@+id/stop_details_container">
+
+        <!-- First ETA row -->
+        <include
+            android:id="@+id/eta_container1"
+            layout="@layout/arrivals_list_header_row_template"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingBottom="5dp"
+            android:visibility="gone" />
+
+        <!-- Line separator -->
+        <TableRow xmlns:android="http://schemas.android.com/apk/res/android"
+            android:gravity="center_vertical"
+            android:id="@+id/eta_separator"
+            android:visibility="gone">
+            <!-- Because the other TableRows arrivals_list_header_row_template have 4 columns,
+             we need to break up the line separator into the same, otherwise it makes
+             the first favorites column bigger than it needs to be -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginLeft="@dimen/keyline_1"
+                android:background="@color/header_text_faded_color" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/header_text_faded_color" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:background="@color/header_text_faded_color" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="1dp"
+                android:layout_marginRight="@dimen/keyline_1"
+                android:background="@color/header_text_faded_color" />
+        </TableRow>
+
+        <!-- Second ETA row -->
+        <include
+            android:id="@+id/eta_container2"
+            layout="@layout/arrivals_list_header_row_template"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:visibility="gone" />
+    </TableLayout>
+
+    <!-- Stop name, star, and stopinfo button  -->
+    <include
+        android:id="@+id/stop_details_container"
+        layout="@layout/stop_details_container"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_alignParentBottom="true"
+        android:layout_centerInParent="true"
+        android:layout_marginLeft="@dimen/keyline_1"
+        android:layout_marginRight="@dimen/keyline_1"
+        android:layout_marginTop="8dp"
+        android:layout_marginBottom="@dimen/arrival_header_bottom_margin" />
+
+    <ProgressBar
+        android:id="@+id/header_loading_spinner"
+        style="?android:progressBarStyleLarge"
+        android:layout_width="60dp"
+        android:layout_height="60dp"
+        android:layout_marginLeft="8dp"
+        android:paddingRight="8dp"
+        android:paddingBottom="5dp"
+        android:visibility="visible"
+        android:layout_marginTop="8dp"
+        android:layout_centerInParent="true" />
+
+    <TextView
+        android:id="@+id/no_arrivals"
+        android:textSize="18sp"
+        android:textColor="@color/header_text_color"
+        android:ellipsize="end"
+        android:singleLine="true"
+        android:layout_gravity="center"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        android:layout_above="@+id/stop_details_container"
+        android:textIsSelectable="false"
+        android:layout_centerVertical="true"
+        android:layout_centerHorizontal="true"
+        android:visibility="gone" />
+
+    <ImageView
+        android:id="@+id/expand_collapse"
+        android:src="@drawable/ic_navigation_expand_more"
+        android:contentDescription="@string/stop_header_sliding_panel_collapsed"
+        android:layout_width="13dp"
+        android:layout_height="13dp"
+        android:layout_marginBottom="@dimen/arrival_header_bottom_margin_expand_collapse"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentRight="true"
+        android:layout_marginRight="@dimen/keyline_1" />
+
+    <ImageView
+        android:id="@+id/alert"
+        android:src="@drawable/ic_alert_warning"
+        android:layout_width="23dp"
+        android:layout_height="23dp"
+        android:layout_marginBottom="@dimen/arrival_header_bottom_margin_expand_collapse"
+        android:layout_alignParentBottom="true"
+        android:layout_alignParentLeft="true"
+        android:layout_marginLeft="@dimen/keyline_1"
+        android:visibility="gone" />
+</RelativeLayout>
