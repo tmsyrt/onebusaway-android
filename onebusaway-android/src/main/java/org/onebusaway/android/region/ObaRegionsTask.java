@@ -16,18 +16,6 @@
  */
 package org.onebusaway.android.region;
 
-import com.google.android.gms.common.ConnectionResult;
-import com.google.android.gms.common.GoogleApiAvailability;
-import com.google.android.gms.common.api.GoogleApiClient;
-
-import org.onebusaway.android.R;
-import org.onebusaway.android.app.Application;
-import org.onebusaway.android.io.ObaAnalytics;
-import org.onebusaway.android.io.elements.ObaRegion;
-import org.onebusaway.android.util.LocationUtils;
-import org.onebusaway.android.util.RegionUtils;
-import org.onebusaway.android.util.UIUtils;
-
 import android.app.AlertDialog;
 import android.app.ProgressDialog;
 import android.content.Context;
@@ -38,6 +26,22 @@ import android.os.AsyncTask;
 import android.os.Handler;
 import android.util.Log;
 
+import com.google.android.gms.common.ConnectionResult;
+import com.google.android.gms.common.GoogleApiAvailability;
+import com.google.android.gms.common.api.GoogleApiClient;
+import com.google.transit.realtime.GtfsRealtime;
+
+import org.onebusaway.android.R;
+import org.onebusaway.android.app.Application;
+import org.onebusaway.android.io.ObaAnalytics;
+import org.onebusaway.android.io.elements.ObaRegion;
+import org.onebusaway.android.util.LocationUtils;
+import org.onebusaway.android.util.RegionUtils;
+import org.onebusaway.android.util.UIUtils;
+
+import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -135,6 +139,23 @@ public class ObaRegionsTask extends AsyncTask<Void, Integer, ArrayList<ObaRegion
 
     @Override
     protected ArrayList<ObaRegion> doInBackground(Void... params) {
+        URL url = null;
+        try {
+            url = new URL("http://alerts.onebusaway.org/api/v1/regions/1/alerts.pb");
+        } catch (MalformedURLException e) {
+            e.printStackTrace();
+        }
+        GtfsRealtime.FeedMessage feed = null;
+        try {
+            feed = GtfsRealtime.FeedMessage.parseFrom(url.openStream());
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+        for (GtfsRealtime.FeedEntity entity : feed.getEntityList()) {
+            if (entity.hasAlert()) {
+                Log.d("alert-feed", entity.getAlert().toString());
+            }
+        }
         return RegionUtils.getRegions(mContext, mForceReload);
     }
 

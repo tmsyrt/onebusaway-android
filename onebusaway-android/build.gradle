@@ -438,6 +438,8 @@ dependencies {
     implementation 'com.github.amlcurran.showcaseview:library:5.4.3'
     // POJOs used for full data-binding via Jackson
     implementation 'edu.usf.cutr.opentripplanner.android:opentripplanner-pojos:1.0.0-SNAPSHOT'
+    // Region-wide alert feed
+    implementation 'com.google.transit:gtfs-realtime-bindings:0.0.4'
     // Google Play Services Maps (only for Google flavor)
     googleImplementation ("com.google.android.gms:play-services-maps:${this.ext.playServicesVersion}") {
         force = true
