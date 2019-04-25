@@ -19,6 +19,8 @@ import groovy.swing.SwingBuilder
 import org.apache.tools.ant.filters.ConcatFilter
 
 apply plugin: 'com.android.application'
+apply plugin: 'kotlin-android'
+apply plugin: 'kotlin-android-extensions'
 
 repositories {
     maven {
@@ -49,8 +51,8 @@ android {
     defaultConfig {
         minSdkVersion 16
         targetSdkVersion 26
-        versionCode 101
-        versionName "2.4.4"
+        versionCode 102
+        versionName "2.5.0"
 
         multiDexEnabled true
 
@@ -208,7 +210,7 @@ android {
             buildConfigField "String", "FIXED_REGION_PAYMENT_WARNING_BODY", "null"
         }
         yrt {
-            // "YRT - York Region Transit - Canada" rebranding
+            // "YRT - York Region Transit - Canada" rebranding - https://play.google.com/store/apps/details?id=can.yrt.onebusaway
             dimension "brand"
             applicationId "can.yrt.onebusaway" // Unique listing of this brand on app store
             manifestPlaceholders = [databaseAuthority: applicationId.toString() + '.provider']
@@ -396,6 +398,10 @@ dependencies {
     // Firebase Analytics
     implementation 'com.google.firebase:firebase-core:16.0.8'
     implementation 'com.google.firebase:firebase-analytics:16.4.0'
+    // Cloud Firestore (for storing destination alert test data)
+    implementation 'com.google.firebase:firebase-firestore:17.1.4'
+    implementation 'com.google.firebase:firebase-auth:16.1.0'
+    implementation 'com.google.firebase:firebase-storage:16.0.5'
     // Google Play Services Location (we need this on Amazon flavor too)
     implementation 'com.google.android.gms:play-services-location:16.0.0'
     // Support libraries
@@ -435,6 +441,8 @@ dependencies {
     implementation 'androidx.multidex:multidex:2.0.0'
     // Unit tests - seems like this is still necessary w/ Android X even though useLibrary is declared earlier
     androidTestImplementation 'androidx.test:runner:1.1.0'
+    // WorkManager (Java only)
+    implementation 'androidx.work:work-runtime:2.0.0'
 }
 
 apply plugin:'com.google.gms.google-services'
