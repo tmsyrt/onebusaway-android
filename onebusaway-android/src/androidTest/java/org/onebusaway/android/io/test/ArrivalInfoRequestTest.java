@@ -26,6 +26,7 @@ import org.onebusaway.android.io.elements.ObaSituation;
 import org.onebusaway.android.io.elements.ObaStop;
 import org.onebusaway.android.io.elements.ObaTrip;
 import org.onebusaway.android.io.elements.Occupancy;
+import org.onebusaway.android.io.elements.Status;
 import org.onebusaway.android.io.request.ObaArrivalInfoRequest;
 import org.onebusaway.android.io.request.ObaArrivalInfoResponse;
 import org.onebusaway.android.mock.MockRegion;
@@ -68,7 +69,7 @@ public class ArrivalInfoRequestTest extends ObaTestCase {
                 new ObaArrivalInfoRequest.Builder(getTargetContext(), "1_29261");
         ObaArrivalInfoRequest request = builder.build();
         UriAssert.assertUriMatch(
-                "http://api.pugetsound.onebusaway.org/api/where/arrivals-and-departures-for-stop/1_29261.json",
+                "https://api.pugetsound.onebusaway.org/api/where/arrivals-and-departures-for-stop/1_29261.json",
                 new HashMap<String, String>() {{
                     put("key", "*");
                     put("version", "2");
@@ -99,7 +100,7 @@ public class ArrivalInfoRequestTest extends ObaTestCase {
                         "Hillsborough Area Regional Transit_3105");
         ObaArrivalInfoRequest request = builder.build();
         UriAssert.assertUriMatch(
-                "http://api.tampa.onebusaway.org/api/api/where/arrivals-and-departures-for-stop/Hillsborough%20Area%20Regional%20Transit_3105.json",
+                "https://api.tampa.onebusaway.org/api/api/where/arrivals-and-departures-for-stop/Hillsborough%20Area%20Regional%20Transit_3105.json",
                 new HashMap<String, String>() {{
                     put("key", "*");
                     put("version", "2");
@@ -179,6 +180,7 @@ public class ArrivalInfoRequestTest extends ObaTestCase {
         assertNotNull(arrivals);
         assertEquals(27.982215585882088, arrivals[0].getTripStatus().getPosition().getLatitude());
         assertEquals(-82.4224, arrivals[0].getTripStatus().getPosition().getLongitude());
+        assertEquals(Status.DEFAULT, arrivals[0].getTripStatus().getStatus());
 
         final List<ObaStop> nearbyStops = response.getNearbyStops();
         assertTrue(nearbyStops.size() > 0);
@@ -245,7 +247,7 @@ public class ArrivalInfoRequestTest extends ObaTestCase {
         ObaArrivalInfoRequest request = ObaArrivalInfoRequest.newRequest(getTargetContext(), "1_10");
         assertNotNull(request);
         UriAssert.assertUriMatch(
-                "http://api.pugetsound.onebusaway.org/api/where/arrivals-and-departures-for-stop/1_10.json",
+                "https://api.pugetsound.onebusaway.org/api/where/arrivals-and-departures-for-stop/1_10.json",
                 new HashMap<String, String>() {{
                     put("key", "*");
                     put("version", "2");
@@ -434,6 +436,49 @@ public class ArrivalInfoRequestTest extends ObaTestCase {
         assertEquals("http://www.sdmts.com/Planning/alerts_detours.asp", situation.getUrl());
     }
 
+    /**
+     * Test an alert with a beginning time but no end time
+     *
+     */
+    @Test
+    public void testSituationNoEndTimeSdmts() {
+        // Test by setting API directly
+        Application.get().setCustomApiUrl("sdmts.onebusway.org/api");
+        ObaArrivalInfoResponse response =
+                new ObaArrivalInfoRequest.Builder(getTargetContext(), "MTS_9999").build().call();
+        assertOK(response);
+        List<ObaSituation> situations = response.getSituations();
+        assertNotNull(situations);
+
+        ObaSituation situation = situations.get(0);
+        assertEquals("MTS_RTA:11955571", situation.getId());
+        assertEquals("Bus Real Time System Outage", situation.getSummary());
+        assertEquals(
+                "Due to a communications outage, all bus real time information is unavailable. We apologize for the inconvenience and are working to resolve the issue as soon as possible.",
+                situation.getDescription());
+        assertEquals(1561496718329L, situation.getCreationTime());
+        assertEquals("MTS", situation.getAllAffects()[0].getAgencyId());
+        assertEquals("", situation.getAllAffects()[0].getApplicationId());
+        assertEquals("", situation.getAllAffects()[0].getDirectionId());
+        assertEquals("", situation.getAllAffects()[0].getRouteId());
+        assertEquals("", situation.getAllAffects()[0].getStopId());
+        assertEquals("", situation.getAllAffects()[0].getTripId());
+        assertNull(situation.getUrl());
+
+        // Check active window - there is no end time for this situation in the response
+        ObaSituation.ActiveWindow[] windows = situation.getActiveWindows();
+        assertEquals(1561491840, windows[0].getFrom());
+        assertEquals(0, windows[0].getTo());
+
+        long timeBeforeWindow0 = 0;
+        boolean result = UIUtils.isActiveWindowForSituation(situation, timeBeforeWindow0);
+        assertEquals(false, result);
+
+        long timeWithinWindow0 = 1561494000000L;
+        result = UIUtils.isActiveWindowForSituation(situation, timeWithinWindow0);
+        assertEquals(true, result);
+    }
+
     // TODO: get/create situation response that includes diversion path
     /*
     public void testTripSituation() throws Exception {
@@ -507,55 +552,84 @@ public class ArrivalInfoRequestTest extends ObaTestCase {
         // EMPTY
         ObaArrivalInfo info = arrivals[0];
         assertEquals(Occupancy.EMPTY, info.getHistoricalOccupancy());
-        assertEquals(Occupancy.EMPTY, info.getPredictedOccupancy());
-        assertEquals(Occupancy.EMPTY, info.getTripStatus().getRealtimeOccupancy());
+        assertEquals(Occupancy.EMPTY, info.getOccupancyStatus());
+        assertEquals(Occupancy.EMPTY, info.getTripStatus().getOccupancyStatus());
 
         // MANY_SEATS_AVAILABLE
         info = arrivals[1];
         assertEquals(Occupancy.MANY_SEATS_AVAILABLE, info.getHistoricalOccupancy());
-        assertEquals(Occupancy.MANY_SEATS_AVAILABLE, info.getPredictedOccupancy());
-        assertEquals(Occupancy.MANY_SEATS_AVAILABLE, info.getTripStatus().getRealtimeOccupancy());
+        assertEquals(Occupancy.MANY_SEATS_AVAILABLE, info.getOccupancyStatus());
+        assertEquals(Occupancy.MANY_SEATS_AVAILABLE, info.getTripStatus().getOccupancyStatus());
 
         // FEW_SEATS_AVAILABLE
         info = arrivals[2];
         assertEquals(Occupancy.FEW_SEATS_AVAILABLE, info.getHistoricalOccupancy());
-        assertEquals(Occupancy.FEW_SEATS_AVAILABLE, info.getPredictedOccupancy());
-        assertEquals(Occupancy.FEW_SEATS_AVAILABLE, info.getTripStatus().getRealtimeOccupancy());
+        assertEquals(Occupancy.FEW_SEATS_AVAILABLE, info.getOccupancyStatus());
+        assertEquals(Occupancy.FEW_SEATS_AVAILABLE, info.getTripStatus().getOccupancyStatus());
 
         // STANDING_ROOM_ONLY
         info = arrivals[3];
         assertEquals(Occupancy.STANDING_ROOM_ONLY, info.getHistoricalOccupancy());
-        assertEquals(Occupancy.STANDING_ROOM_ONLY, info.getPredictedOccupancy());
-        assertEquals(Occupancy.STANDING_ROOM_ONLY, info.getTripStatus().getRealtimeOccupancy());
+        assertEquals(Occupancy.STANDING_ROOM_ONLY, info.getOccupancyStatus());
+        assertEquals(Occupancy.STANDING_ROOM_ONLY, info.getTripStatus().getOccupancyStatus());
 
         // CRUSHED_STANDING_ROOM_ONLY
         info = arrivals[4];
         assertEquals(Occupancy.CRUSHED_STANDING_ROOM_ONLY, info.getHistoricalOccupancy());
-        assertEquals(Occupancy.CRUSHED_STANDING_ROOM_ONLY, info.getPredictedOccupancy());
-        assertEquals(Occupancy.CRUSHED_STANDING_ROOM_ONLY, info.getTripStatus().getRealtimeOccupancy());
+        assertEquals(Occupancy.CRUSHED_STANDING_ROOM_ONLY, info.getOccupancyStatus());
+        assertEquals(Occupancy.CRUSHED_STANDING_ROOM_ONLY, info.getTripStatus().getOccupancyStatus());
 
         // FULL
         info = arrivals[5];
         assertEquals(Occupancy.FULL, info.getHistoricalOccupancy());
-        assertEquals(Occupancy.FULL, info.getPredictedOccupancy());
-        assertEquals(Occupancy.FULL, info.getTripStatus().getRealtimeOccupancy());
+        assertEquals(Occupancy.FULL, info.getOccupancyStatus());
+        assertEquals(Occupancy.FULL, info.getTripStatus().getOccupancyStatus());
 
         // NOT_ACCEPTING_PASSENGERS
         info = arrivals[6];
         assertEquals(Occupancy.NOT_ACCEPTING_PASSENGERS, info.getHistoricalOccupancy());
-        assertEquals(Occupancy.NOT_ACCEPTING_PASSENGERS, info.getPredictedOccupancy());
-        assertEquals(Occupancy.NOT_ACCEPTING_PASSENGERS, info.getTripStatus().getRealtimeOccupancy());
+        assertEquals(Occupancy.NOT_ACCEPTING_PASSENGERS, info.getOccupancyStatus());
+        assertEquals(Occupancy.NOT_ACCEPTING_PASSENGERS, info.getTripStatus().getOccupancyStatus());
 
         // Empty string
         info = arrivals[7];
         assertNull(info.getHistoricalOccupancy());
-        assertNull(info.getPredictedOccupancy());
-        assertNull(info.getTripStatus().getRealtimeOccupancy());
+        assertNull(info.getOccupancyStatus());
+        assertNull(info.getTripStatus().getOccupancyStatus());
 
         // Missing field
         info = arrivals[8];
         assertNull(info.getHistoricalOccupancy());
-        assertNull(info.getPredictedOccupancy());
-        assertNull(info.getTripStatus().getRealtimeOccupancy());
+        assertNull(info.getOccupancyStatus());
+        assertNull(info.getTripStatus().getOccupancyStatus());
+    }
+
+    /**
+     * Test canceled trips
+     */
+    @Test
+    public void testCanceledTrips() {
+        // Test by setting region
+        ObaRegion tampa = MockRegion.getTampa(getTargetContext());
+        assertNotNull(tampa);
+        Application.get().setCurrentRegion(tampa);
+        ObaArrivalInfoResponse response =
+                new ObaArrivalInfoRequest.Builder(getTargetContext(),
+                        "Hillsborough Area Regional Transit_9999").build().call();
+        assertOK(response);
+        ObaStop stop = response.getStop();
+        assertNotNull(stop);
+        final List<ObaRoute> routes = response.getRoutes(stop.getRouteIds());
+        assertTrue(routes.size() > 0);
+        ObaAgency agency = response.getAgency(routes.get(0).getAgencyId());
+        assertEquals("Hillsborough Area Regional Transit", agency.getId());
+        ObaTrip trip = response.getTrip("Hillsborough Area Regional Transit_909841");
+        assertEquals("Hillsborough Area Regional Transit_266684", trip.getBlockId());
+
+        final ObaArrivalInfo[] arrivals = response.getArrivalInfo();
+        assertNotNull(arrivals);
+        assertEquals(27.982215585882088, arrivals[0].getTripStatus().getPosition().getLatitude());
+        assertEquals(-82.4224, arrivals[0].getTripStatus().getPosition().getLongitude());
+        assertEquals(Status.CANCELED, arrivals[0].getTripStatus().getStatus());
     }
 }

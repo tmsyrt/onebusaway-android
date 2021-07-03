@@ -16,23 +16,12 @@
 
 package org.onebusaway.android.util;
 
-import com.github.amlcurran.showcaseview.OnShowcaseEventListener;
-import com.github.amlcurran.showcaseview.ShowcaseView;
-import com.github.amlcurran.showcaseview.targets.Target;
-import com.github.amlcurran.showcaseview.targets.ViewTarget;
-
-import org.onebusaway.android.BuildConfig;
-import org.onebusaway.android.R;
-import org.onebusaway.android.app.Application;
-import org.onebusaway.android.io.request.ObaArrivalInfoResponse;
-
 import android.content.Context;
 import android.content.DialogInterface;
 import android.content.SharedPreferences;
 import android.content.res.Resources;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
-import android.os.Build;
 import android.text.Spannable;
 import android.text.SpannableString;
 import android.text.style.ImageSpan;
@@ -44,6 +33,16 @@ import androidx.annotation.DrawableRes;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.core.content.res.ResourcesCompat;
+
+import com.github.amlcurran.showcaseview.OnShowcaseEventListener;
+import com.github.amlcurran.showcaseview.ShowcaseView;
+import com.github.amlcurran.showcaseview.targets.Target;
+import com.github.amlcurran.showcaseview.targets.ViewTarget;
+
+import org.onebusaway.android.BuildConfig;
+import org.onebusaway.android.R;
+import org.onebusaway.android.app.Application;
+import org.onebusaway.android.io.request.ObaArrivalInfoResponse;
 
 /**
  * A class containing utility methods related to showing a tutorial to users for how to use various
@@ -75,19 +74,9 @@ public class ShowcaseViewUtils {
     public static final String TUTORIAL_SEND_FEEDBACK_OPEN311_CATEGORIES
             = ".tutorial_send_feedback_open311_categories";
 
-    private static ShowcaseView mShowcaseView;
+    public static final String TUTORIAL_TRIP_PLAN_GEOCODER = ".tutorial_trip_plan_geocoder";
 
-    /**
-     * Returns true if this API level supports the ShowcaseView library tutorials, false if it does
-     * not
-     *
-     * @return true if this API level supports the ShowcaseView library tutorials, false if it does
-     * not
-     */
-    public static boolean supportsShowcaseView() {
-        // ShowcaseView only works on API Level >= 11
-        return Build.VERSION.SDK_INT >= Build.VERSION_CODES.HONEYCOMB;
-    }
+    private static ShowcaseView mShowcaseView;
 
     /**
      * Shows the tutorial for the specified tutorialType.  This method handles checking to see if
@@ -100,10 +89,12 @@ public class ShowcaseViewUtils {
      * @param response     The response that contains arrival info, or null if this is not available.
      *                     Some tutorials require that arrival info is showing - these tutorials
      *                     will only be displayed if arrival info is provided in this parameter.
+     * @param alwaysShow   true if the tutorial should be shown to the user even if they chose to
+     *                     turn off tutorials, false if we should follow the user preference
      */
     public synchronized static void showTutorial(String tutorialType,
-            final AppCompatActivity activity, final ObaArrivalInfoResponse response) {
-        if (!supportsShowcaseView() || activity == null) {
+                                                 final AppCompatActivity activity, final ObaArrivalInfoResponse response, boolean alwaysShow) {
+        if (activity == null) {
             return;
         }
         if (isShowcaseViewShowing()
@@ -118,7 +109,7 @@ public class ShowcaseViewUtils {
         // If user has opted out of tutorials, do nothing
         boolean showTutorials = settings.getBoolean(
                 activity.getString(R.string.preference_key_show_tutorial_screens), true);
-        if (!showTutorials) {
+        if (!showTutorials && !alwaysShow) {
             return;
         }
 
@@ -164,7 +155,7 @@ public class ShowcaseViewUtils {
                 listener = new OnShowcaseEventListener() {
                     @Override
                     public void onShowcaseViewHide(ShowcaseView showcaseView) {
-                        showTutorial(TUTORIAL_ARRIVAL_HEADER_SLIDING_PANEL, activity, response);
+                        showTutorial(TUTORIAL_ARRIVAL_HEADER_SLIDING_PANEL, activity, response, false);
                     }
 
                     @Override
@@ -234,6 +225,12 @@ public class ShowcaseViewUtils {
                         r.getString(R.string.tutorial_send_feedback_transit_service_text));
                 target = new ViewTarget(R.id.ri_spinnerServices, activity);
                 break;
+            case TUTORIAL_TRIP_PLAN_GEOCODER:
+                title = r.getString(R.string.tutorial_trip_plan_geocoder_title);
+                text = new SpannableString(
+                        r.getString(R.string.tutorial_trip_plan_geocoder_text));
+                target = new ViewTarget(R.id.toAddressTextArea, activity);
+                break;
             default:
                 throw new IllegalArgumentException(
                         "tutorialType must be one of the TUTORIAL_* constants in ShowcaseViewUtils");
@@ -277,7 +274,7 @@ public class ShowcaseViewUtils {
 
     /**
      * Give the user a break from tutorials - only show every 10th time, unless its the beginning
-     * three important screens
+     * three important screens or the intro to the new trip planning geocoder
      *
      * @param tutorialType type of tutorial to show, defined by the TUTORIAL_* constants in
      *                     ShowcaseViewUtils
@@ -288,7 +285,8 @@ public class ShowcaseViewUtils {
         final String TUTORIAL_COUNTER = context.getString(R.string.preference_key_tutorial_counter);
         if (!(tutorialType.equals(TUTORIAL_WELCOME) ||
                 tutorialType.equals(TUTORIAL_ARRIVAL_HEADER_ARRIVAL_INFO) ||
-                tutorialType.equals(TUTORIAL_ARRIVAL_HEADER_SLIDING_PANEL))) {
+                tutorialType.equals(TUTORIAL_ARRIVAL_HEADER_SLIDING_PANEL) ||
+                tutorialType.equals(TUTORIAL_TRIP_PLAN_GEOCODER))) {
 
             int counter = Application.getPrefs().getInt(TUTORIAL_COUNTER, 0);
             counter++;
@@ -324,7 +322,7 @@ public class ShowcaseViewUtils {
                                 // Make sure tutorials are enabled - they will show on their own
                                 PreferenceUtils.saveBoolean(showTutorialsKey, true);
                                 // Show the welcome tutorial
-                                showTutorial(ShowcaseViewUtils.TUTORIAL_WELCOME, activity, null);
+                                showTutorial(ShowcaseViewUtils.TUTORIAL_WELCOME, activity, null, false);
                             }
                         })
                 .setNegativeButton(R.string.rt_no,

@@ -23,6 +23,7 @@ import android.content.ContentValues;
 import android.content.Context;
 import android.content.Intent;
 import android.content.res.Resources;
+import android.graphics.Paint;
 import android.graphics.drawable.ColorDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.location.Location;
@@ -49,6 +50,8 @@ import android.widget.RelativeLayout;
 import android.widget.TableLayout;
 import android.widget.TextView;
 
+import androidx.fragment.app.FragmentManager;
+
 import com.google.firebase.analytics.FirebaseAnalytics;
 
 import org.onebusaway.android.R;
@@ -56,15 +59,13 @@ import org.onebusaway.android.app.Application;
 import org.onebusaway.android.io.ObaAnalytics;
 import org.onebusaway.android.io.elements.ObaArrivalInfo;
 import org.onebusaway.android.io.elements.ObaRegion;
+import org.onebusaway.android.io.elements.Status;
 import org.onebusaway.android.provider.ObaContract;
 import org.onebusaway.android.util.ArrivalInfoUtils;
-import org.onebusaway.android.util.EmbeddedSocialUtils;
 import org.onebusaway.android.util.UIUtils;
 
 import java.util.ArrayList;
 import java.util.List;
-
-import androidx.fragment.app.FragmentManager;
 
 //
 // A helper class that gets most of the header interaction
@@ -131,11 +132,6 @@ class ArrivalsListHeader {
          * Triggers a full refresh of arrivals from the OBA server
          */
         void refresh();
-
-        /**
-         * Opens the discussion item related to the currently selected stop
-         */
-        void openStopDiscussion();
     }
 
     private static final String TAG = "ArrivalsListHeader";
@@ -166,8 +162,6 @@ class ArrivalsListHeader {
     private EditText mEditNameView;
 
     private ImageButton mStopFavorite;
-
-    private ImageButton mStopDiscussion;
 
     private View mFilterGroup;
 
@@ -343,11 +337,6 @@ class ArrivalsListHeader {
         mEditNameView = (EditText) mView.findViewById(R.id.edit_name);
         mStopFavorite = (ImageButton) mView.findViewById(R.id.stop_favorite);
         mStopFavorite.setColorFilter(mView.getResources().getColor(R.color.header_text_color));
-        mStopDiscussion = (ImageButton) mView.findViewById(R.id.stop_discussion);
-        mStopDiscussion.setColorFilter(mView.getResources().getColor(R.color.header_text_color));
-        if (!EmbeddedSocialUtils.isSocialEnabled()) {
-            mStopDiscussion.setVisibility(View.GONE);
-        }
 
         mFilterGroup = mView.findViewById(R.id.filter_group);
 
@@ -449,16 +438,6 @@ class ArrivalsListHeader {
             public void onClick(View v) {
                 mController.setFavoriteStop(!mController.isFavoriteStop());
                 refreshStopFavorite();
-            }
-        });
-
-        mStopDiscussion.setOnClickListener(new View.OnClickListener() {
-            @Override
-            public void onClick(View v) {
-                ObaAnalytics.reportUiEvent(mFirebaseAnalytics,
-                        mContext.getString(R.string.analytics_label_button_press_social_stop),
-                        null);
-                mController.openStopDiscussion();
             }
         });
 
@@ -721,6 +700,14 @@ class ArrivalsListHeader {
                         R.drawable.focus_star_on :
                         R.drawable.focus_star_off);
 
+                if (info1.getTripStatus() != null && Status.CANCELED.equals(info1.getTripStatus().getStatus())) {
+                    // Trip is canceled - strike through text fields
+                    mEtaRouteName1.setPaintFlags(Paint.STRIKE_THRU_TEXT_FLAG);
+                    mEtaRouteDirection1.setPaintFlags(Paint.STRIKE_THRU_TEXT_FLAG);
+                    mEtaArrivalInfo1.setPaintFlags(Paint.STRIKE_THRU_TEXT_FLAG);
+                    mEtaMin1.setPaintFlags(Paint.STRIKE_THRU_TEXT_FLAG);
+                }
+
                 mEtaRouteName1.setText(info1.getShortName());
                 mEtaRouteDirection1.setText(UIUtils.formatDisplayText(info1.getHeadsign()));
                 long eta = mArrivalInfo.get(i1).getEta();
@@ -784,6 +771,15 @@ class ArrivalsListHeader {
                     mEtaRouteFavorite2.setImageResource(isFavorite2 ?
                             R.drawable.focus_star_on :
                             R.drawable.focus_star_off);
+
+                    if (info2.getTripStatus() != null && Status.CANCELED.equals(info2.getTripStatus().getStatus())) {
+                        // Trip is canceled - strike through text fields
+                        mEtaRouteName2.setPaintFlags(Paint.STRIKE_THRU_TEXT_FLAG);
+                        mEtaRouteDirection2.setPaintFlags(Paint.STRIKE_THRU_TEXT_FLAG);
+                        mEtaArrivalInfo2.setPaintFlags(Paint.STRIKE_THRU_TEXT_FLAG);
+                        mEtaMin2.setPaintFlags(Paint.STRIKE_THRU_TEXT_FLAG);
+                    }
+
                     mEtaRouteName2.setText(info2.getShortName());
                     mEtaRouteDirection2.setText(UIUtils.formatDisplayText(info2.getHeadsign()));
                     eta = mArrivalInfo.get(i2).getEta();
@@ -1398,7 +1394,6 @@ class ArrivalsListHeader {
         mNameContainerView.setVisibility(View.GONE);
         mFilterGroup.setVisibility(View.GONE);
         mStopFavorite.setVisibility(View.GONE);
-        mStopDiscussion.setVisibility(View.GONE);
         mEtaContainer1.setVisibility(View.GONE);
         mEtaSeparator.setVisibility(View.GONE);
         mEtaContainer2.setVisibility(View.GONE);
@@ -1436,7 +1431,6 @@ class ArrivalsListHeader {
         mNameContainerView.setVisibility(View.VISIBLE);
         mEditNameContainerView.setVisibility(View.GONE);
         mStopFavorite.setVisibility(View.VISIBLE);
-        mStopDiscussion.setVisibility(View.VISIBLE);
         mExpandCollapse.setVisibility(cachedExpandCollapseViewVisibility);
         mNoArrivals.setVisibility(View.VISIBLE);
         if (mHasError || mHasWarning) {

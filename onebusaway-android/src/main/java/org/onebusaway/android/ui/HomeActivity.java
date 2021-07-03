@@ -17,6 +17,7 @@
  */
 package org.onebusaway.android.ui;
 
+import android.Manifest;
 import android.app.Dialog;
 import android.content.Context;
 import android.content.DialogInterface;
@@ -26,6 +27,7 @@ import android.content.pm.PackageInfo;
 import android.content.pm.PackageManager;
 import android.content.pm.PackageManager.NameNotFoundException;
 import android.content.res.Resources;
+import android.graphics.Paint;
 import android.graphics.drawable.GradientDrawable;
 import android.location.Location;
 import android.net.Uri;
@@ -52,15 +54,17 @@ import android.widget.RelativeLayout;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.core.content.ContextCompat;
+import androidx.fragment.app.FragmentManager;
+
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.material.floatingactionbutton.FloatingActionButton;
 import com.google.firebase.analytics.FirebaseAnalytics;
-import com.microsoft.embeddedsocial.sdk.EmbeddedSocial;
-import com.microsoft.embeddedsocial.ui.fragment.ActivityFeedFragment;
-import com.microsoft.embeddedsocial.ui.fragment.MyProfileFragment;
-import com.microsoft.embeddedsocial.ui.fragment.PinsFragment;
 import com.sothree.slidinguppanel.SlidingUpPanelLayout;
 
 import org.onebusaway.android.BuildConfig;
@@ -77,6 +81,8 @@ import org.onebusaway.android.map.googlemapsv2.BaseMapFragment;
 import org.onebusaway.android.map.googlemapsv2.LayerInfo;
 import org.onebusaway.android.region.ObaRegionsTask;
 import org.onebusaway.android.report.ui.ReportActivity;
+import org.onebusaway.android.travelbehavior.TravelBehaviorManager;
+import org.onebusaway.android.travelbehavior.utils.TravelBehaviorUtils;
 import org.onebusaway.android.tripservice.TripService;
 import org.onebusaway.android.util.FragmentUtils;
 import org.onebusaway.android.util.LocationUtils;
@@ -93,12 +99,6 @@ import java.util.Collections;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
-
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.core.content.ContextCompat;
-import androidx.fragment.app.FragmentManager;
 
 import static org.onebusaway.android.ui.NavigationDrawerFragment.NAVDRAWER_ITEM_ACTIVITY_FEED;
 import static org.onebusaway.android.ui.NavigationDrawerFragment.NAVDRAWER_ITEM_HELP;
@@ -171,10 +171,6 @@ public class HomeActivity extends AppCompatActivity
 
     View mArrivalsListHeaderSubView;
 
-    private ImageButton mZoomInBtn;
-
-    private ImageButton mZoomOutBtn;
-
     private FloatingActionButton mFabMyLocation;
 
     uk.co.markormesher.android_fab.FloatingActionButton mLayersFab;
@@ -194,6 +190,8 @@ public class HomeActivity extends AppCompatActivity
 
     // Bottom Sliding panel
     SlidingUpPanelLayout mSlidingPanel;
+
+    public static final int BATTERY_OPTIMIZATIONS_PERMISSION_REQUEST = 111;
 
     /**
      * Fragment managing the behaviors, interactions and presentation of the navigation drawer.
@@ -215,12 +213,6 @@ public class HomeActivity extends AppCompatActivity
     BaseMapFragment mMapFragment;
 
     MyRemindersFragment mMyRemindersFragment;
-
-    PinsFragment mMyPinsFragment;
-
-    ActivityFeedFragment mActivityFeedFragment;
-
-    MyProfileFragment mMyProfileFragment;
 
     /**
      * Control which menu options are shown per fragment menu groups
@@ -357,9 +349,6 @@ public class HomeActivity extends AppCompatActivity
 
         mFirebaseAnalytics = FirebaseAnalytics.getInstance(this);
 
-        // Workaround to make sure ES SDK is initialized in case we startup to ES Fragments (#953)
-        Application.get().setUpSocial();
-
         setContentView(R.layout.main);
 
         mActivityWeakRef = new WeakReference<>(this);
@@ -382,6 +371,14 @@ public class HomeActivity extends AppCompatActivity
 
         UIUtils.setupActionBar(this);
 
+        // To enable checkBatteryOptimizations, also uncomment the
+        // REQUEST_IGNORE_BATTERY_OPTIMIZATIONS permission in AndroidManifest.xml
+        // See https://github.com/OneBusAway/onebusaway-android/pull/988#discussion_r299950506
+//        checkBatteryOptimizations();
+
+        new TravelBehaviorManager(this, getApplicationContext()).
+                registerTravelBehaviorParticipant();
+
         if (!mInitialStartup || PermissionUtils.hasGrantedPermissions(this, LOCATION_PERMISSIONS)) {
             // It's not the first startup or if the user has already granted location permissions (Android L and lower), then check the region status
             // Otherwise, wait for a permission callback from the BaseMapFragment before checking the region status
@@ -393,7 +390,7 @@ public class HomeActivity extends AppCompatActivity
         if (b != null) {
             if (b.getBoolean(ShowcaseViewUtils.TUTORIAL_WELCOME)) {
                 // Show the welcome tutorial
-                ShowcaseViewUtils.showTutorial(ShowcaseViewUtils.TUTORIAL_WELCOME, this, null);
+                ShowcaseViewUtils.showTutorial(ShowcaseViewUtils.TUTORIAL_WELCOME, this, null, false);
             }
         }
     }
@@ -480,6 +477,11 @@ public class HomeActivity extends AppCompatActivity
                             null);
                 }
                 break;
+            // below values are deprecated; fall through to NAVDRAWER_ITEM_NEARBY
+            case NAVDRAWER_ITEM_SIGN_IN:
+            case NAVDRAWER_ITEM_PROFILE:
+            case NAVDRAWER_ITEM_PINS:
+            case NAVDRAWER_ITEM_ACTIVITY_FEED:
             case NAVDRAWER_ITEM_NEARBY:
                 if (mCurrentNavDrawerPosition != NAVDRAWER_ITEM_NEARBY) {
                     showMapFragment();
@@ -508,38 +510,6 @@ public class HomeActivity extends AppCompatActivity
             case NAVDRAWER_ITEM_PAY_FARE:
                 UIUtils.launchPayMyFareApp(this);
                 break;
-            case NAVDRAWER_ITEM_SIGN_IN:
-                ObaAnalytics.reportLoginEvent(mFirebaseAnalytics,
-                        getString(R.string.analytics_login_embedded_social));
-                EmbeddedSocial.launchSignInActivity(this);
-                break;
-            case NAVDRAWER_ITEM_PROFILE:
-                if (mCurrentNavDrawerPosition != NAVDRAWER_ITEM_PROFILE) {
-                    showMyProfileFragment();
-                    mCurrentNavDrawerPosition = item;
-                    ObaAnalytics.reportUiEvent(mFirebaseAnalytics,
-                            getString(R.string.analytics_label_button_press_social_profile),
-                            null);
-                }
-                break;
-            case NAVDRAWER_ITEM_PINS:
-                if (mCurrentNavDrawerPosition != NAVDRAWER_ITEM_PINS) {
-                    showPinsFragment();
-                    mCurrentNavDrawerPosition = item;
-                    ObaAnalytics.reportUiEvent(mFirebaseAnalytics,
-                            getString(R.string.analytics_label_button_press_social_pins),
-                            null);
-                }
-                break;
-            case NAVDRAWER_ITEM_ACTIVITY_FEED:
-                if (mCurrentNavDrawerPosition != NAVDRAWER_ITEM_ACTIVITY_FEED) {
-                    showActivityFeedFragment();
-                    mCurrentNavDrawerPosition = item;
-                    ObaAnalytics.reportUiEvent(mFirebaseAnalytics,
-                            getString(R.string.analytics_label_button_press_social_activity_feed),
-                            null);
-                }
-                break;
             case NAVDRAWER_ITEM_SETTINGS:
                 Intent preferences = new Intent(HomeActivity.this, PreferencesActivity.class);
                 startActivity(preferences);
@@ -548,9 +518,6 @@ public class HomeActivity extends AppCompatActivity
                         null);
                 break;
             case NAVDRAWER_ITEM_HELP:
-                if (noActiveFragments()) {
-                    showMapFragment();
-                }
                 showDialog(HELP_DIALOG);
                 ObaAnalytics.reportUiEvent(mFirebaseAnalytics,
                         getString(R.string.analytics_label_button_press_help),
@@ -574,11 +541,6 @@ public class HomeActivity extends AppCompatActivity
         invalidateOptionsMenu();
     }
 
-    // Return true if this HomeActivity has no active content fragments
-    private boolean noActiveFragments() {
-        return mMapFragment == null && mMyStarredStopsFragment == null && mMyRemindersFragment == null;
-    }
-
     private void handleNearbySelection() {
     }
 
@@ -589,9 +551,6 @@ public class HomeActivity extends AppCompatActivity
          */
         hideStarredStopsFragment();
         hideReminderFragment();
-        hidePinsFragment();
-        hideActivityFeedFragment();
-        hideMyProfileFragment();
         mShowStarredStopsMenu = false;
         /**
          * Show fragment (we use show instead of replace to keep the map state)
@@ -649,9 +608,6 @@ public class HomeActivity extends AppCompatActivity
         hideMapFragment();
         hideReminderFragment();
         hideSlidingPanel();
-        hidePinsFragment();
-        hideActivityFeedFragment();
-        hideMyProfileFragment();
         mShowArrivalsMenu = false;
         showZoomControls(false);
 
@@ -686,9 +642,6 @@ public class HomeActivity extends AppCompatActivity
         hideStarredStopsFragment();
         hideMapFragment();
         hideSlidingPanel();
-        hidePinsFragment();
-        hideActivityFeedFragment();
-        hideMyProfileFragment();
         mShowArrivalsMenu = false;
         mShowStarredStopsMenu = false;
         showZoomControls(false);
@@ -710,114 +663,6 @@ public class HomeActivity extends AppCompatActivity
         }
         fm.beginTransaction().show(mMyRemindersFragment).commit();
         setTitle(getResources().getString(R.string.navdrawer_item_my_reminders));
-    }
-
-    private void showPinsFragment() {
-        FragmentManager fm = getSupportFragmentManager();
-        /**
-         * Hide everything that shouldn't be shown
-         */
-        hideFloatingActionButtons();
-        hideMapProgressBar();
-        hideMapFragment();
-        hideStarredStopsFragment();
-        hideReminderFragment();
-        hideActivityFeedFragment();
-        hideMyProfileFragment();
-        hideSlidingPanel();
-        mShowArrivalsMenu = false;
-        showZoomControls(false);
-        /**
-         * Show fragment (we use show instead of replace to keep the map state)
-         */
-        mShowStarredStopsMenu = false;
-        if (mMyPinsFragment == null) {
-            // First check to see if an instance of PinsFragment already exists (see #356)
-            mMyPinsFragment = (PinsFragment) fm
-                    .findFragmentByTag(PinsFragment.TAG);
-
-            if (mMyPinsFragment == null) {
-                // No existing fragment was found, so create a new one
-                Log.d(TAG, "Creating new PinsFragment");
-                mMyPinsFragment = new PinsFragment();
-                fm.beginTransaction().add(R.id.main_fragment_container, mMyPinsFragment,
-                        PinsFragment.TAG).commit();
-            }
-        }
-        fm.beginTransaction().show(mMyPinsFragment).commit();
-        setTitle(getResources().getString(R.string.navdrawer_item_pin));
-    }
-
-    private void showActivityFeedFragment() {
-        FragmentManager fm = getSupportFragmentManager();
-        /**
-         * Hide everything that shouldn't be shown
-         */
-        hideFloatingActionButtons();
-        hideMapProgressBar();
-        hideMapFragment();
-        hideStarredStopsFragment();
-        hideReminderFragment();
-        hidePinsFragment();
-        hideMyProfileFragment();
-        hideSlidingPanel();
-        mShowArrivalsMenu = false;
-        showZoomControls(false);
-        /**
-         * Show fragment (we use show instead of replace to keep the map state)
-         */
-        mShowStarredStopsMenu = false;
-        if (mActivityFeedFragment == null) {
-            // First check to see if an instance of PinsFragment already exists (see #356)
-            mActivityFeedFragment = (ActivityFeedFragment) fm
-                    .findFragmentByTag(ActivityFeedFragment.TAG);
-
-            if (mActivityFeedFragment == null) {
-                // No existing fragment was found, so create a new one
-                Log.d(TAG, "Creating new ActivityFeedFragment");
-                mActivityFeedFragment = new ActivityFeedFragment();
-                fm.beginTransaction().add(R.id.main_fragment_container, mActivityFeedFragment,
-                        ActivityFeedFragment.TAG).commit();
-            }
-        }
-        fm.beginTransaction().show(mActivityFeedFragment).commit();
-        setTitle(getResources().getString(R.string.navdrawer_item_activity_feed));
-    }
-
-    private void showMyProfileFragment() {
-        FragmentManager fm = getSupportFragmentManager();
-        /**
-         * Hide everything that shouldn't be shown
-         */
-        hideFloatingActionButtons();
-        hideMapProgressBar();
-        hideMapFragment();
-        hideStarredStopsFragment();
-        hideReminderFragment();
-        hidePinsFragment();
-        hideActivityFeedFragment();
-        hideSlidingPanel();
-        mShowArrivalsMenu = false;
-        showZoomControls(false);
-        /**
-         * Show fragment (we use show instead of replace to keep the map state)
-         */
-        mShowStarredStopsMenu = false;
-        if (mMyProfileFragment == null) {
-            // First check to see if an instance of PinsFragment already exists (see #356)
-            mMyProfileFragment = (MyProfileFragment) fm
-                    .findFragmentByTag(MyProfileFragment.TAG);
-
-            if (mMyProfileFragment == null) {
-                // No existing fragment was found, so create a new one
-                Log.d(TAG, "Creating new MyProfileFragment");
-                mMyProfileFragment = new MyProfileFragment();
-                fm.beginTransaction().add(R.id.main_fragment_container, mMyProfileFragment,
-                        MyProfileFragment.TAG).commit();
-            }
-        }
-        fm.beginTransaction().show(mMyProfileFragment).commit();
-        setTitle(getResources().getString(R.string.navdrawer_item_profile));
     }
 
     private void hideMapFragment() {
@@ -843,33 +688,6 @@ public class HomeActivity extends AppCompatActivity
                 .findFragmentByTag(MyRemindersFragment.TAG);
         if (mMyRemindersFragment != null && !mMyRemindersFragment.isHidden()) {
             fm.beginTransaction().hide(mMyRemindersFragment).commit();
-        }
-    }
-
-    private void hidePinsFragment() {
-        FragmentManager fm = getSupportFragmentManager();
-        mMyPinsFragment = (PinsFragment) fm.findFragmentByTag(
-                PinsFragment.TAG);
-        if (mMyPinsFragment != null && !mMyPinsFragment.isHidden()) {
-            fm.beginTransaction().hide(mMyPinsFragment).commit();
-        }
-    }
-
-    private void hideActivityFeedFragment() {
-        FragmentManager fm = getSupportFragmentManager();
-        mActivityFeedFragment = (ActivityFeedFragment) fm.findFragmentByTag(
-                ActivityFeedFragment.TAG);
-        if (mActivityFeedFragment != null && !mActivityFeedFragment.isHidden()) {
-            fm.beginTransaction().hide(mActivityFeedFragment).commit();
-        }
-    }
-
-    private void hideMyProfileFragment() {
-        FragmentManager fm = getSupportFragmentManager();
-        mMyProfileFragment = (MyProfileFragment) fm.findFragmentByTag(
-                MyProfileFragment.TAG);
-        if (mMyProfileFragment != null && !mMyProfileFragment.isHidden()) {
-            fm.beginTransaction().hide(mMyProfileFragment).commit();
         }
     }
 
@@ -960,9 +778,7 @@ public class HomeActivity extends AppCompatActivity
                         switch (which) {
                             case 0:
                                 ShowcaseViewUtils.resetAllTutorials(HomeActivity.this);
-                                mNavigationDrawerFragment.setSavedPosition(NAVDRAWER_ITEM_NEARBY);
                                 NavHelp.goHome(HomeActivity.this, true);
-
                                 break;
                             case 1:
                                 showDialog(LEGEND_DIALOG);
@@ -1067,6 +883,18 @@ public class HomeActivity extends AppCompatActivity
         etaTextView = etaAndMin.findViewById(R.id.eta);
         etaTextView.setTextSize(etaTextFontSize);
         etaTextView.setText("5");
+
+        // Canceled View
+        etaAndMin = legendDialogView.findViewById(R.id.eta_view_canceled);
+        d1 = (GradientDrawable) etaAndMin.getBackground();
+        d1.setColor(resources.getColor(R.color.stop_info_scheduled_time));
+        etaAndMin.findViewById(R.id.eta_realtime_indicator).setVisibility(View.INVISIBLE);
+        etaTextView = etaAndMin.findViewById(R.id.eta);
+        etaTextView.setTextSize(etaTextFontSize);
+        etaTextView.setText("5");
+        etaTextView.setPaintFlags(Paint.STRIKE_THRU_TEXT_FLAG);
+        TextView etaMin = etaAndMin.findViewById(R.id.eta_min);
+        etaMin.setPaintFlags(Paint.STRIKE_THRU_TEXT_FLAG);
 
         builder.setView(legendDialogView);
 
@@ -1263,7 +1091,7 @@ public class HomeActivity extends AppCompatActivity
 
         // Show the tutorial explaining arrival times
         ShowcaseViewUtils.showTutorial(ShowcaseViewUtils.TUTORIAL_ARRIVAL_HEADER_ARRIVAL_INFO, this,
-                response);
+                response, false);
 
         // Make sure the panel is stationary before showing the starred routes tutorial
         if (mSlidingPanel != null &&
@@ -1273,9 +1101,9 @@ public class HomeActivity extends AppCompatActivity
                                 == SlidingUpPanelLayout.PanelState.EXPANDED)) {
             ShowcaseViewUtils
                     .showTutorial(ShowcaseViewUtils.TUTORIAL_ARRIVAL_HEADER_STAR_ROUTE, this,
-                            response);
+                            response, false);
         }
-        ShowcaseViewUtils.showTutorial(ShowcaseViewUtils.TUTORIAL_RECENT_STOPS_ROUTES, this, null);
+        ShowcaseViewUtils.showTutorial(ShowcaseViewUtils.TUTORIAL_RECENT_STOPS_ROUTES, this, null, false);
     }
 
     /**
@@ -1509,13 +1337,9 @@ public class HomeActivity extends AppCompatActivity
     }
 
     private void setupZoomButtons() {
-
-        mZoomInBtn = findViewById(R.id.btnZoomIn);
-
-        mZoomOutBtn = findViewById(R.id.btnZoomOut);
-
+        ImageButton mZoomInBtn = findViewById(R.id.btnZoomIn);
+        ImageButton mZoomOutBtn = findViewById(R.id.btnZoomOut);
         mZoomInBtn.setOnClickListener(view -> mMapFragment.zoomIn());
-
         mZoomOutBtn.setOnClickListener(view -> mMapFragment.zoomOut());
     }
 
@@ -1526,6 +1350,7 @@ public class HomeActivity extends AppCompatActivity
             if (mMapFragment != null) {
                 // Reset the preference to ask user to enable location
                 PreferenceUtils.saveBoolean(getString(R.string.preference_key_never_show_location_dialog), false);
+                PreferenceUtils.setUserDeniedLocationPermissions(false);
 
                 mMapFragment.setMyLocation(true, true);
                 ObaAnalytics.reportUiEvent(mFirebaseAnalytics,
@@ -2000,5 +1825,46 @@ public class HomeActivity extends AppCompatActivity
 
     public ArrivalsListFragment getArrivalsListFragment() {
         return mArrivalsListFragment;
+    }
+
+    private void checkBatteryOptimizations() {
+        if (PreferenceUtils.getBoolean(getString(R.string.not_request_battery_optimizations_key),
+                false) || !TravelBehaviorUtils.isUserParticipatingInStudy()) {
+            return;
+        }
+
+        Boolean ignoringBatteryOptimizations = Application.isIgnoringBatteryOptimizations(getApplicationContext());
+        if (ignoringBatteryOptimizations != null && !ignoringBatteryOptimizations) {
+            showIgnoreBatteryOptimizationDialog();
+        }
+    }
+
+    private void showIgnoreBatteryOptimizationDialog() {
+        new android.app.AlertDialog.Builder(this)
+                .setMessage(R.string.application_ignoring_battery_opt_message)
+                .setTitle(R.string.application_ignoring_battery_opt_title)
+                .setIcon(R.drawable.ic_alert_warning)
+                .setCancelable(false)
+                .setPositiveButton(R.string.travel_behavior_dialog_yes,
+                        (dialog, which) -> {
+                            if (PermissionUtils.hasGrantedPermissions(this, new String[]{Manifest.
+                                    permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS})) {
+                                UIUtils.openBatteryIgnoreIntent(this);
+                            } else {
+                                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M) {
+                                    requestPermissions(new String[]{Manifest.
+                                                    permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS},
+                                            BATTERY_OPTIMIZATIONS_PERMISSION_REQUEST);
+                                }
+                            }
+                            PreferenceUtils.saveBoolean(getString(R.string.not_request_battery_optimizations_key),
+                                    true);
+                        })
+                .setNegativeButton(R.string.travel_behavior_dialog_no,
+                        (dialog, which) -> {
+                            PreferenceUtils.saveBoolean(getString(R.string.not_request_battery_optimizations_key),
+                                    true);
+                        })
+                .create().show();
     }
 }

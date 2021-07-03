@@ -24,11 +24,6 @@
     <string name="navdrawer_item_nearby">Cerca</string>
     <string name="navdrawer_item_starred_stops">Paradas favoritas</string>
     <string name="navdrawer_item_my_reminders">Mis recordatorios</string>
-    <string name="navdrawer_item_profile">Mi Perfil</string>
-    <string name="navdrawer_item_sign_in">Iniciar Sesión</string>
-    <string name="navdrawer_item_popular">Popular</string>
-    <string name="navdrawer_item_pin">Mis Guardados</string>
-    <string name="navdrawer_item_activity_feed">Actividad Reciente</string>
     <string name="navdrawer_item_settings">Configuración</string>
     <string name="navdrawer_item_help">Ayuda</string>
     <string name="navdrawer_item_send_feedback">Enviar comentarios</string>
@@ -407,21 +402,21 @@
     <!-- Occupancy -->
     <string name="historically_full">Históricamente lleno</string>
     <string name="historically_standing_room">Históricamente estar de pie</string>
-    <string name="historically_seats_available">Históricamente asientos disponibles</string>
+    <string name="historically_many_seats_available">Históricamente asientos disponibles</string>
     <string name="historically_empty">Históricamente vacío</string>
     <string name="menu_title_about_historical_occupancy">Sobre la ocupación histórica</string>
     <string name="menu_title_about_occupancy">Sobre la ocupación</string>
     <string name="menu_text_about_historical_occupancy">La ocupación histórica (ícono gris) es un promedio del viaje en esta parada en los últimos 6 meses.</string>
-    <string name="menu_text_about_occupancy">La ocupación en tiempo real se muestra usando coloración verde cuando hay muchos asientos disponibles o espacio para estar disponible, y se muestra en color rojo cuando el vehículo está lleno. La ocupación histórica (ícono gris) es un promedio del viaje en esta parada en los últimos 6 meses.</string>
+    <string name="menu_text_about_occupancy">La ocupación en tiempo real se muestra usando coloración verde cuando hay muchos asientos disponibles o pocos asientos disponibles, y se muestra en color rojo cuando el vehículo está lleno. La ocupación histórica (ícono gris) es un promedio del viaje en esta parada en los últimos 6 meses.</string>
 
     <string name="realtime_full">Lleno</string>
     <string name="realtime_standing_room">Estar de pie</string>
-    <string name="realtime_seats_available">Asientos disponibles</string>
+    <string name="realtime_many_seats_available">Asientos disponibles</string>
     <string name="realtime_empty">Vacío</string>
 
     <string name="predicted_full">Lleno pronosticado</string>
     <string name="predicted_standing_room">Estar de pie pronosticado</string>
-    <string name="predicted_seats_available">Asientos disponibles pronosticado</string>
+    <string name="predicted_many_seats_available">Asientos disponibles pronosticado</string>
     <string name="predicted_empty">Vacío pronosticado</string>
 
 
@@ -448,10 +443,6 @@
     <string name="foreground_action_poll_text">Comprobando las predicciones de tus recordatorios&#8230;</string>
     <string name="foreground_action_notify_text">Activando una notificación para su recordatorio&#8230;</string>
     <string name="foreground_action_cancel_text">Descartando tu recordatorio&#8230;</string>
-
-    <!-- Embedded Social -->
-    <string name="social">Social</string>
-    <string name="join_discussion">Ingresa a la discución</string>
 
     <!-- Report problem -->
     <string name="report_problem_comment_hint">Descripción del problema (opcional)</string>
@@ -556,7 +547,6 @@
     <string name="preferences_category_display">Pantalla</string>
     <string name="preferences_category_backup">Respaldar</string>
     <string name="preferences_category_notifications">Notificaciones</string>
-    <string name="preferences_category_social">Social</string>
     <string name="preferences_category_advanced">Avanzado</string>
     <string name="preferences_screen_advanced_summary">Profundizar en aspectos prácticos</string>
     <string name="preferences_category_about">Acerca de</string>
@@ -617,9 +607,6 @@
     <string name="preferences_save_summary">Guarda tus paradas y rutas favoritas y también las búsquedas recientes</string>
     <string name="preferences_restore_title">Restaurar desde el almacenamiento</string>
     <string name="preferences_restore_summary">Restaurar del respaldo anterior</string>
-    <string name="preferences_screen_social_title">Social Integrado</string>
-    <string name="preferences_screen_social_summary_signed_in">Salir, Políticas de Privacidad, Términos y Condiciones, cuentas vinculadas, eliminar cuenta</string>
-    <string name="preferences_screen_social_summary_signed_out">Iniciar sesión, Políticas de Privacidad, Términos y Condiciones</string>
     <string name="preferences_db_saved">¡Guardado exitosamente!</string>
     <string name="preferences_db_save_error">No se puede guardar: %1$s</string>
     <string name="preferences_db_restore_warning">¡Esto borrará todos los datos existentes! ¿Continuar?
@@ -744,6 +731,7 @@
     <string name="night_light_dialog_title">¡Nunca pierdas el bus en la noche otra vez!</string>
     <string name="night_light_dialog_message">¿Cansado de ver pasar tu bus porque el conductor
         no te podía ver en la oscuridad? ¡Enciende la luz parpadeante para la noche y hazte visible!
+        \n\nADVERTENCIA: esta función puede provocar convulsiones en personas con epilepsia fotosensible. Se aconseja la discreción del usuario.
     </string>
     <string name="night_light_create_shortcut">Crear un acceso directo</string>
 
@@ -863,8 +851,6 @@
     <string name="trip_plan_leaving">Saliendo</string>
     <string name="trip_plan_arriving">Llegando</string>
     <string name="trip_plan_stop_connector">a las</string>
-
-    <string name="trip_plan_location_hint">Indique una dirección o lugar</string>
 
     <string name="trip_plan_list_view">Vista de Lista</string>
     <string name="trip_plan_map_view">Vista de Mapa</string>
@@ -1070,13 +1056,4 @@
     <string name="layers_speedial_bikeshare_label">Bicicleta Compartida</string>
     <string name="bike_station_title">Toca para reservar una bicicleta</string>
     <string name="floating_bike_title">Toca para reservar esta bicicleta</string>
-
-    <!-- Social -->
-    <string name="embedded_social_restriction">Habilitar funciones sociales</string>
-    <string name="es_missing_stop_conversation">No hay discusiones sociales aún disponibles para esta parada</string>
-    <string name="es_missing_route_conversation">No hay discusiones sociales aún disponibles para esta ruta</string>
-    <string name="es_msg_general_create_user_success">Cuenta Social Integrada creada</string>
-    <string name="es_msg_general_signin_success">Sesión Iniciada en Social Integrada</string>
-    <string name="es_msg_general_signout_success">Sesión Cerrada en Social Integrada</string>
-    <string name="es_msg_general_account_deleted">Cuenta Social Integrada eliminada</string>
 </resources>

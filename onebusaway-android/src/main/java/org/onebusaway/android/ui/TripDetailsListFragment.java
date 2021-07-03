@@ -28,6 +28,7 @@ import android.content.IntentSender;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
+import android.graphics.Paint;
 import android.graphics.PorterDuff;
 import android.graphics.drawable.Drawable;
 import android.graphics.drawable.GradientDrawable;
@@ -52,6 +53,11 @@ import android.widget.ListView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.core.graphics.drawable.DrawableCompat;
+import androidx.loader.app.LoaderManager;
+import androidx.loader.content.AsyncTaskLoader;
+import androidx.loader.content.Loader;
+
 import com.google.android.gms.common.api.ApiException;
 import com.google.android.gms.common.api.ResolvableApiException;
 import com.google.android.gms.location.LocationRequest;
@@ -61,9 +67,12 @@ import com.google.android.gms.location.LocationSettingsResponse;
 import com.google.android.gms.location.LocationSettingsStatusCodes;
 import com.google.android.gms.tasks.OnCompleteListener;
 import com.google.android.gms.tasks.Task;
+import com.google.firebase.analytics.FirebaseAnalytics;
 
+import org.apache.commons.lang3.StringUtils;
 import org.onebusaway.android.R;
 import org.onebusaway.android.app.Application;
+import org.onebusaway.android.io.ObaAnalytics;
 import org.onebusaway.android.io.ObaApi;
 import org.onebusaway.android.io.elements.ObaReferences;
 import org.onebusaway.android.io.elements.ObaRoute;
@@ -72,9 +81,11 @@ import org.onebusaway.android.io.elements.ObaTrip;
 import org.onebusaway.android.io.elements.ObaTripSchedule;
 import org.onebusaway.android.io.elements.ObaTripStatus;
 import org.onebusaway.android.io.elements.OccupancyState;
+import org.onebusaway.android.io.elements.Status;
 import org.onebusaway.android.io.request.ObaTripDetailsRequest;
 import org.onebusaway.android.io.request.ObaTripDetailsResponse;
 import org.onebusaway.android.nav.NavigationService;
+import org.onebusaway.android.travelbehavior.TravelBehaviorManager;
 import org.onebusaway.android.util.ArrivalInfoUtils;
 import org.onebusaway.android.util.DBUtil;
 import org.onebusaway.android.util.LocationUtils;
@@ -84,11 +95,6 @@ import org.onebusaway.android.util.UIUtils;
 import java.util.Calendar;
 import java.util.GregorianCalendar;
 import java.util.concurrent.TimeUnit;
-
-import androidx.core.graphics.drawable.DrawableCompat;
-import androidx.loader.app.LoaderManager;
-import androidx.loader.content.AsyncTaskLoader;
-import androidx.loader.content.Loader;
 
 public class TripDetailsListFragment extends ListFragment {
 
@@ -142,6 +148,8 @@ public class TripDetailsListFragment extends ListFragment {
 
     private LocationRequest mLocationRequest;
     private Task<LocationSettingsResponse> mResult;
+
+    private FirebaseAnalytics mFirebaseAnalytics;
 
     /**
      * Builds an intent used to set the trip and stop for the TripDetailsListFragment directly
@@ -210,6 +218,7 @@ public class TripDetailsListFragment extends ListFragment {
             // reason to create our view.
             return null;
         }
+        mFirebaseAnalytics = FirebaseAnalytics.getInstance(getActivity());
         return inflater.inflate(R.layout.trip_details, null);
     }
 
@@ -354,11 +363,19 @@ public class TripDetailsListFragment extends ListFragment {
         ObaTrip trip = refs.getTrip(tripId);
         mRouteId = trip.getRouteId();
         ObaRoute route = refs.getRoute(mRouteId);
-        TextView shortName = (TextView) getView().findViewById(R.id.short_name);
-        shortName.setText(route.getShortName());
+        TextView routeShortName = (TextView) getView().findViewById(R.id.short_name);
+        routeShortName.setText(route.getShortName());
 
-        TextView longName = (TextView) getView().findViewById(R.id.long_name);
-        longName.setText(trip.getHeadsign());
+        TextView headsign = (TextView) getView().findViewById(R.id.long_name);
+        headsign.setText(trip.getHeadsign());
+
+        TextView tripShortName = (TextView) getView().findViewById(R.id.trip_short_name);
+        if (!StringUtils.isBlank(trip.getShortName())) {
+            tripShortName.setVisibility(View.VISIBLE);
+            tripShortName.setText(trip.getShortName());
+        } else {
+            tripShortName.setVisibility(View.GONE);
+        }
 
         TextView agency = (TextView) getView().findViewById(R.id.agency);
         agency.setText(refs.getAgency(route.getAgencyId()).getName());
@@ -399,9 +416,16 @@ public class TripDetailsListFragment extends ListFragment {
 
         if (!status.isPredicted()) {
             // We have only schedule info, but the bus position can still be interpolated
-            vehicleDeviation.setText(context.getString(R.string.trip_details_scheduled_data));
             statusColor = R.color.stop_info_scheduled_time;
             d.setColor(getResources().getColor(statusColor));
+
+            if (Status.CANCELED.equals(status.getStatus())) {
+                // Canceled trip
+                vehicleDeviation.setText(context.getString(R.string.stop_info_canceled));
+            } else {
+                // Scheduled trip
+                vehicleDeviation.setText(context.getString(R.string.trip_details_scheduled_data));
+            }
             return;
         }
 
@@ -452,10 +476,10 @@ public class TripDetailsListFragment extends ListFragment {
             }
         }
 
-        if (status.getRealtimeOccupancy() != null) {
+        if (status.getOccupancyStatus() != null) {
             // Real-time occupancy data
-            UIUtils.setOccupancyVisibilityAndColor(occupancyView, status.getRealtimeOccupancy(), OccupancyState.REALTIME);
-            UIUtils.setOccupancyContentDescription(occupancyView, status.getRealtimeOccupancy(), OccupancyState.REALTIME);
+            UIUtils.setOccupancyVisibilityAndColor(occupancyView, status.getOccupancyStatus(), OccupancyState.REALTIME);
+            UIUtils.setOccupancyContentDescription(occupancyView, status.getOccupancyStatus(), OccupancyState.REALTIME);
         } else {
             // Hide occupancy by setting null value
             UIUtils.setOccupancyVisibilityAndColor(occupancyView, null, OccupancyState.REALTIME);
@@ -523,16 +547,21 @@ public class TripDetailsListFragment extends ListFragment {
                             getDialogForLocationModeChanges().show();
                         }
 
-                        // Warn users that destination remindres are in beta
+                        // Warn users that destination reminders are in beta
                         if (!(prefs.getBoolean(getString(R.string.preference_key_never_show_destination_reminder_beta_dialog), false))) {
                             createDestinationReminderBetaDialog().show();
                         }
+
+                        ObaAnalytics.reportUiEvent(mFirebaseAnalytics, getString(R.string.analytics_label_destination_reminder), getString(R.string.analytics_label_destination_reminder_variant_started));
 
                         startNavigationService(setUpNavigationService(position));
                         Toast.makeText(Application.get(),
                                 Application.get().getString(R.string.destination_reminder_title),
                                 Toast.LENGTH_LONG
                         ).show();
+
+                        TravelBehaviorManager.saveDestinationReminders(mStopId, mDestinationId,
+                                mTripId, mRouteId, mTripInfo.getCurrentTime());
                     }
                 });
 
@@ -907,6 +936,12 @@ public class TripDetailsListFragment extends ListFragment {
                             DateUtils.FORMAT_NO_MIDNIGHT
             ));
 
+            if (mStatus != null && Status.CANCELED.equals(mStatus.getStatus())) {
+                // CANCELED trip - Strike through the text fields
+                stopName.setPaintFlags(Paint.STRIKE_THRU_TEXT_FLAG);
+                time.setPaintFlags(Paint.STRIKE_THRU_TEXT_FLAG);
+            }
+
             if (stopTime.getPredictedOccupancy() != null) {
                 // Predicted occupancy data
                 UIUtils.setOccupancyVisibilityAndColor(occupancyView, stopTime.getPredictedOccupancy(), OccupancyState.PREDICTED);
@@ -1136,10 +1171,15 @@ public class TripDetailsListFragment extends ListFragment {
     }
 
     /**
+     * Starts the navigation service for destination reminders
      * @param serviceIntent
      */
     private void startNavigationService(Intent serviceIntent) {
-        Application.get().getApplicationContext().startService(serviceIntent);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            Application.get().getApplicationContext().startForegroundService(serviceIntent);
+        } else {
+            Application.get().getApplicationContext().startService(serviceIntent);
+        }
 
         // Register receiver
         registerReceiver();

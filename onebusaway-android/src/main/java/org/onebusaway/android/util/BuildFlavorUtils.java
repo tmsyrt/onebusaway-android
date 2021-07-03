@@ -15,11 +15,12 @@
  */
 package org.onebusaway.android.util;
 
-import org.onebusaway.android.R;
-import org.onebusaway.android.app.Application;
-
 import android.content.SharedPreferences;
 import android.content.res.Resources;
+
+import org.onebusaway.android.BuildConfig;
+import org.onebusaway.android.R;
+import org.onebusaway.android.app.Application;
 
 /**
  * Constants and utilities used in the build.gradle build flavors to define certain features per
@@ -52,11 +53,11 @@ public class BuildFlavorUtils {
      */
     public static String getPreferenceOptionForArrivalInfoBuildFlavorStyle(int buildFlavorStyle) {
         switch (buildFlavorStyle) {
-            case BuildFlavorUtils.ARRIVAL_INFO_STYLE_A:
+            case ARRIVAL_INFO_STYLE_A:
                 // OBA Classic
                 return Application.get().getResources()
                         .getString(R.string.preferences_arrival_info_style_options_a);
-            case BuildFlavorUtils.ARRIVAL_INFO_STYLE_B:
+            case ARRIVAL_INFO_STYLE_B:
                 // Use a card-styled footer
                 return Application.get().getResources()
                         .getString(R.string.preferences_arrival_info_style_options_b);
@@ -92,5 +93,15 @@ public class BuildFlavorUtils {
         }
         // Return style A by default
         return ARRIVAL_INFO_STYLE_A;
+    }
+
+    /**
+     * Returns true if the Pelias API key is non-empty, false if it is not
+     *
+     * @return true if the Pelias API key is non-empty, false if it is not
+     */
+    public static boolean isPeliasApiKeyDefined() {
+        String peliasKey = BuildConfig.PELIAS_API_KEY;
+        return peliasKey != null && peliasKey.length() != 0;
     }
 }

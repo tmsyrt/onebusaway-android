@@ -17,6 +17,10 @@
  */
 package org.onebusaway.android.ui;
 
+import static org.onebusaway.android.util.PermissionUtils.RESTORE_BACKUP_PERMISSION_REQUEST;
+import static org.onebusaway.android.util.PermissionUtils.SAVE_BACKUP_PERMISSION_REQUEST;
+import static org.onebusaway.android.util.PermissionUtils.STORAGE_PERMISSIONS;
+
 import android.annotation.SuppressLint;
 import android.app.Activity;
 import android.content.DialogInterface;
@@ -26,6 +30,7 @@ import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.os.Build;
 import android.os.Bundle;
+import android.preference.CheckBoxPreference;
 import android.preference.ListPreference;
 import android.preference.Preference;
 import android.preference.Preference.OnPreferenceChangeListener;
@@ -44,8 +49,11 @@ import android.widget.LinearLayout;
 import android.widget.ListView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.widget.Toolbar;
+import androidx.core.app.ActivityCompat;
+
 import com.google.firebase.analytics.FirebaseAnalytics;
-import com.microsoft.embeddedsocial.sdk.EmbeddedSocial;
 
 import org.onebusaway.android.BuildConfig;
 import org.onebusaway.android.R;
@@ -53,24 +61,18 @@ import org.onebusaway.android.app.Application;
 import org.onebusaway.android.io.ObaAnalytics;
 import org.onebusaway.android.io.elements.ObaRegion;
 import org.onebusaway.android.region.ObaRegionsTask;
+import org.onebusaway.android.travelbehavior.TravelBehaviorManager;
+import org.onebusaway.android.travelbehavior.utils.TravelBehaviorUtils;
 import org.onebusaway.android.util.BackupUtils;
 import org.onebusaway.android.util.BuildFlavorUtils;
-import org.onebusaway.android.util.EmbeddedSocialUtils;
 import org.onebusaway.android.util.PermissionUtils;
+import org.onebusaway.android.util.PreferenceUtils;
 import org.onebusaway.android.util.ShowcaseViewUtils;
 
 import java.net.MalformedURLException;
 import java.net.URL;
 import java.util.ArrayList;
 import java.util.List;
-
-import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.widget.Toolbar;
-import androidx.core.app.ActivityCompat;
-
-import static org.onebusaway.android.util.PermissionUtils.RESTORE_BACKUP_PERMISSION_REQUEST;
-import static org.onebusaway.android.util.PermissionUtils.SAVE_BACKUP_PERMISSION_REQUEST;
-import static org.onebusaway.android.util.PermissionUtils.STORAGE_PERMISSIONS;
 
 public class PreferencesActivity extends PreferenceActivity
         implements Preference.OnPreferenceClickListener, OnPreferenceChangeListener,
@@ -89,6 +91,8 @@ public class PreferencesActivity extends PreferenceActivity
     Preference mCustomOtpApiUrlPref;
 
     Preference mAnalyticsPref;
+
+    CheckBoxPreference mTravelBehaviorPref;
 
     Preference mTutorialPref;
 
@@ -142,6 +146,19 @@ public class PreferencesActivity extends PreferenceActivity
         mAnalyticsPref = findPreference(getString(R.string.preferences_key_analytics));
         mAnalyticsPref.setOnPreferenceChangeListener(this);
 
+        mTravelBehaviorPref = (CheckBoxPreference) findPreference(getString(R.string.preferences_key_travel_behavior));
+        mTravelBehaviorPref.setOnPreferenceChangeListener(this);
+
+        if (!TravelBehaviorUtils.isTravelBehaviorActiveInRegion() ||
+                (!TravelBehaviorUtils.allowEnrollMoreParticipantsInStudy() &&
+                        !TravelBehaviorUtils.isUserParticipatingInStudy())) {
+            PreferenceCategory aboutCategory = (PreferenceCategory)
+                    findPreference(getString(R.string.preferences_category_about));
+            aboutCategory.removePreference(mTravelBehaviorPref);
+        } else {
+            mTravelBehaviorPref.setChecked(TravelBehaviorUtils.isUserParticipatingInStudy());
+        }
+
         mTutorialPref = findPreference(getString(R.string.preference_key_tutorial));
         mTutorialPref.setOnPreferenceClickListener(this);
 
@@ -153,26 +170,6 @@ public class PreferencesActivity extends PreferenceActivity
 
         mAboutPref = findPreference(getString(R.string.preferences_key_about));
         mAboutPref.setOnPreferenceClickListener(this);
-
-        if (EmbeddedSocialUtils.isSocialEnabled()) {
-            Preference socialPref = findPreference(getString(R.string.preference_key_social));
-
-            if (EmbeddedSocial.isSignedIn()) {
-                socialPref.setSummary(R.string.preferences_screen_social_summary_signed_in);
-            }
-
-            socialPref.setOnPreferenceClickListener(preference -> {
-                ObaAnalytics.reportUiEvent(mFirebaseAnalytics,
-                        getString(R.string.analytics_label_button_press_social_settings),
-                        null);
-
-                EmbeddedSocial.launchOptionsActivity(PreferencesActivity.this);
-                return true;
-            });
-        } else {
-            // Social is not enabled so don't show related preferences
-            getPreferenceScreen().removePreference(findPreference(getString(R.string.preference_key_social_category)));
-        }
 
         SharedPreferences settings = Application.getPrefs();
         mAutoSelectInitialValue = settings
@@ -437,12 +434,49 @@ public class PreferencesActivity extends PreferenceActivity
             Boolean isAnalyticsActive = (Boolean) newValue;
             //Report if the analytics turns off, just before shared preference changed
             ObaAnalytics.setSendAnonymousData(mFirebaseAnalytics, isAnalyticsActive);
+        } else if (preference.equals(mTravelBehaviorPref) && newValue instanceof Boolean) {
+            Boolean activateTravelBehaviorCollection = (Boolean) newValue;
+            if (activateTravelBehaviorCollection) {
+                new TravelBehaviorManager(this, getApplicationContext()).
+                        registerTravelBehaviorParticipant(true);
+            } else {
+                showOptOutDialog();
+                return false;
+            }
         } else if (preference.equals(mLeftHandMode) && newValue instanceof Boolean) {
             Boolean isLeftHandEnabled = (Boolean) newValue;
             //Report if left handed mode is turned on, just before shared preference changed
             ObaAnalytics.setLeftHanded(mFirebaseAnalytics, isLeftHandEnabled);
         }
         return true;
+    }
+
+    /**
+     * Shows the dialog to explain user is choosing to opt out of travel behavior research study
+     */
+    private void showOptOutDialog() {
+        androidx.appcompat.app.AlertDialog.Builder builder = new androidx.appcompat.app.AlertDialog.Builder(this)
+                .setTitle(R.string.travel_behavior_dialog_opt_out_title)
+                .setMessage(R.string.travel_behavior_dialog_opt_out_message)
+                .setCancelable(false)
+                .setPositiveButton(R.string.ok,
+                        (dialog, which) -> {
+                            // Remove user from study
+                            new TravelBehaviorManager(this, getApplicationContext()).
+                                    stopCollectingData();
+                            TravelBehaviorManager.optOutUser();
+                            TravelBehaviorManager.optOutUserOnServer();
+                            // Change preference
+                            mTravelBehaviorPref.setChecked(false);
+                            PreferenceUtils.saveBoolean(getString(R.string.preferences_key_travel_behavior), false);
+                        }
+                )
+                .setNegativeButton(R.string.cancel,
+                        (dialog, which) -> {
+                            // No-op
+                        }
+                );
+        builder.create().show();
     }
 
     @Override
@@ -545,8 +579,8 @@ public class PreferencesActivity extends PreferenceActivity
             // URI.parse() doesn't tell us if the scheme is missing, so use URL() instead (#126)
             URL url = new URL(apiUrl);
         } catch (MalformedURLException e) {
-            // Assume HTTP scheme if none is provided
-            apiUrl = getString(R.string.http_prefix) + apiUrl;
+            // Assume HTTPS scheme if none is provided
+            apiUrl = getString(R.string.https_prefix) + apiUrl;
         }
         return Patterns.WEB_URL.matcher(apiUrl).matches();
     }

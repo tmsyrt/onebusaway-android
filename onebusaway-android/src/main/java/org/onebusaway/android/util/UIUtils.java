@@ -71,6 +71,23 @@ import android.widget.ImageView;
 import android.widget.TextView;
 import android.widget.Toast;
 
+import androidx.annotation.DrawableRes;
+import androidx.annotation.NonNull;
+import androidx.appcompat.app.ActionBar;
+import androidx.appcompat.app.AlertDialog;
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.appcompat.widget.SearchView;
+import androidx.core.content.ContextCompat;
+import androidx.core.content.pm.ShortcutInfoCompat;
+import androidx.core.content.pm.ShortcutManagerCompat;
+import androidx.core.content.res.ResourcesCompat;
+import androidx.core.graphics.drawable.DrawableCompat;
+import androidx.core.graphics.drawable.IconCompat;
+import androidx.core.util.Pair;
+import androidx.core.view.MenuItemCompat;
+import androidx.core.widget.ImageViewCompat;
+import androidx.fragment.app.Fragment;
+
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.firebase.analytics.FirebaseAnalytics;
 
@@ -105,26 +122,6 @@ import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
-
-import androidx.annotation.DrawableRes;
-import androidx.annotation.NonNull;
-import androidx.appcompat.app.ActionBar;
-import androidx.appcompat.app.AlertDialog;
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.appcompat.widget.SearchView;
-import androidx.core.content.ContextCompat;
-import androidx.core.content.pm.ShortcutInfoCompat;
-import androidx.core.content.pm.ShortcutManagerCompat;
-import androidx.core.content.res.ResourcesCompat;
-import androidx.core.graphics.drawable.DrawableCompat;
-import androidx.core.graphics.drawable.IconCompat;
-import androidx.core.util.Pair;
-import androidx.core.view.MenuItemCompat;
-import androidx.core.widget.ImageViewCompat;
-import androidx.fragment.app.Fragment;
-
-import static org.onebusaway.android.util.PermissionUtils.LOCATION_PERMISSIONS;
-import static org.onebusaway.android.util.PermissionUtils.LOCATION_PERMISSION_REQUEST;
 
 /**
  * A class containing utility methods related to the user interface
@@ -391,7 +388,7 @@ public final class UIUtils {
      * @return list of route display names
      */
     public static List<String> deserializeRouteDisplayNames(String serializedRouteDisplayNames) {
-        String routes[] = serializedRouteDisplayNames.split(",");
+        String[] routes = serializedRouteDisplayNames.split(",");
         return Arrays.asList(routes);
     }
 
@@ -1250,7 +1247,7 @@ public final class UIUtils {
      * that trip
      */
     public static List<String> buildTripOptions(Context c, boolean isRouteFavorite, boolean hasUrl,
-                                                boolean isReminderVisible, Occupancy occupancy, OccupancyState occupancyState) {
+                                                boolean isReminderVisible, boolean hasRouteFilter, Occupancy occupancy, OccupancyState occupancyState) {
         ArrayList<String> list = new ArrayList<>();
         if (!isRouteFavorite) {
             list.add(c.getString(R.string.bus_options_menu_add_star));
@@ -1267,18 +1264,17 @@ public final class UIUtils {
             list.add(c.getString(R.string.bus_options_menu_edit_reminder));
         }
 
-        list.add(c.getString(R.string.bus_options_menu_show_only_this_route));
+        if (!hasRouteFilter) {
+            list.add(c.getString(R.string.bus_options_menu_show_only_this_route));
+        } else {
+            list.add(c.getString(R.string.bus_options_menu_show_all_routes));
+        }
 
         if (hasUrl) {
             list.add(c.getString(R.string.bus_options_menu_show_route_schedule));
         }
 
         list.add(c.getString(R.string.bus_options_menu_report_trip_problem));
-
-        ObaRegion currentRegion = Application.get().getCurrentRegion();
-        if (currentRegion != null && EmbeddedSocialUtils.isSocialEnabled()) {
-            list.add(c.getString(R.string.join_discussion));
-        }
 
         if (occupancy != null) {
             if (occupancyState == OccupancyState.HISTORICAL) {
@@ -1316,10 +1312,6 @@ public final class UIUtils {
             list.add(R.drawable.ic_notification_event_note);
         }
         list.add(R.drawable.ic_alert_warning);
-        ObaRegion currentRegion = Application.get().getCurrentRegion();
-        if (currentRegion != null && EmbeddedSocialUtils.isSocialEnabled()) {
-            list.add(R.drawable.es_ic_comment);
-        }
         if (occupancy != null) {
             list.add(R.drawable.ic_occupancy);
         }
@@ -1520,7 +1512,8 @@ public final class UIUtils {
         for (ObaSituation.ActiveWindow activeWindow : situation.getActiveWindows()) {
             long from = activeWindow.getFrom();
             long to = activeWindow.getTo();
-            if (from <= currentTimeSeconds && currentTimeSeconds <= to) {
+            // 0 is a valid end time that means no end to the window - see #990
+            if (from <= currentTimeSeconds && (to == 0 || currentTimeSeconds <= to)) {
                 isActiveWindowForSituation = true;
                 break;
             }
@@ -1836,32 +1829,30 @@ public final class UIUtils {
     }
 
     /**
-     * Shows the dialog to explain why location permissions are needed.  If this provided activity
-     * can't manage dialogs then this method is a no-op.
+     * Launches the HOPR bikeshare app for Tampa if the app is installed, otherwise directs the user
+     * to the Google Play store listing to download it.
      *
-     * NOTE - this dialog can't be managed under the old dialog framework as the method
-     * ActivityCompat.shouldShowRequestPermissionRationale() always returns false.
+     * @param context context to launch the fare payment app or Google Play store from
      */
-    public static void showLocationPermissionDialog(@NonNull Fragment fragment) {
-        if (!canManageDialog(fragment.getActivity())) {
-            return;
+    public static void launchTampaHoprApp(@NonNull Context context) {
+        PackageManager manager = context.getPackageManager();
+        Intent intent = manager.getLaunchIntentForPackage(context.getString(R.string.hopr_android_app_id));
+        if (intent != null) {
+            // Launch installed app
+            intent.addCategory(Intent.CATEGORY_LAUNCHER);
+            context.startActivity(intent);
+            ObaAnalytics.reportUiEvent(FirebaseAnalytics.getInstance(context),
+                    Application.get().getString(R.string.analytics_label_button_bike_share),
+                    Application.get().getString(R.string.analytics_label_open_app));
+        } else {
+            // Go to Play Store listing to download app
+            intent = new Intent(Intent.ACTION_VIEW);
+            intent.setData(Uri.parse(Application.get().getString(R.string.google_play_listing_prefix, context.getString(R.string.hopr_android_app_id))));
+            context.startActivity(intent);
+            ObaAnalytics.reportUiEvent(FirebaseAnalytics.getInstance(context),
+                    Application.get().getString(R.string.analytics_label_button_bike_share),
+                    Application.get().getString(R.string.analytics_label_download_app));
         }
-        AlertDialog.Builder builder = new AlertDialog.Builder(fragment.getActivity())
-                .setTitle(R.string.location_permissions_title)
-                .setMessage(R.string.location_permissions_message)
-                .setCancelable(false)
-                .setPositiveButton(R.string.ok,
-                        (dialog, which) -> {
-                            // Request permissions from the user
-                            fragment.requestPermissions(LOCATION_PERMISSIONS, LOCATION_PERMISSION_REQUEST);
-                        }
-                )
-                .setNegativeButton(R.string.no_thanks,
-                        (dialog, which) -> {
-                            // No-op
-                        }
-                );
-        builder.create().show();
     }
 
     /**
@@ -1914,7 +1905,8 @@ public final class UIUtils {
                 // 2 icons
                 silhouette2.setVisibility(View.VISIBLE);
             case FEW_SEATS_AVAILABLE:
-                // 1 icon
+                // 2 icons
+                silhouette2.setVisibility(View.VISIBLE);
             case MANY_SEATS_AVAILABLE:
                 // 1 icon
                 silhouette1.setVisibility(View.VISIBLE);
@@ -1976,15 +1968,23 @@ public final class UIUtils {
                 }
                 break;
             case FEW_SEATS_AVAILABLE:
-                // "Standing room"
-            case MANY_SEATS_AVAILABLE:
-                // "Standing room"
+                // "Few seats available"
                 if (occupancyState == OccupancyState.HISTORICAL) {
-                    stringId = R.string.historically_seats_available;
+                    stringId = R.string.historically_few_seats_available;
                 } else if (occupancyState == OccupancyState.REALTIME) {
-                    stringId = R.string.realtime_seats_available;
+                    stringId = R.string.realtime_few_seats_available;
                 } else if (occupancyState == OccupancyState.PREDICTED) {
-                    stringId = R.string.predicted_seats_available;
+                    stringId = R.string.predicted_few_seats_available;
+                }
+                break;
+            case MANY_SEATS_AVAILABLE:
+                // "Many seats available"
+                if (occupancyState == OccupancyState.HISTORICAL) {
+                    stringId = R.string.historically_many_seats_available;
+                } else if (occupancyState == OccupancyState.REALTIME) {
+                    stringId = R.string.realtime_many_seats_available;
+                } else if (occupancyState == OccupancyState.PREDICTED) {
+                    stringId = R.string.predicted_many_seats_available;
                 }
                 break;
             case EMPTY:
@@ -2000,5 +2000,18 @@ public final class UIUtils {
         }
 
         v.setContentDescription(Application.get().getString(stringId));
+    }
+
+    /**
+     * Asks the user to whitelist the application for energy restrictions (e.g., running in
+     * the background). See https://developer.android.com/training/monitoring-device-state/doze-standby#support_for_other_use_cases
+     *
+     * @param activity
+     */
+    public static void openBatteryIgnoreIntent(Activity activity) {
+        Intent intent = new Intent();
+        intent.setAction(Settings.ACTION_REQUEST_IGNORE_BATTERY_OPTIMIZATIONS);
+        intent.setData(Uri.parse("package:" + activity.getPackageName()));
+        activity.startActivity(intent);
     }
 }

@@ -96,13 +96,6 @@
                 android:title="@string/preferences_restore_title"
                 android:summary="@string/preferences_restore_summary"/>
     </PreferenceCategory>
-    <PreferenceCategory android:title="@string/preferences_category_social"
-            android:key="@string/preference_key_social_category">
-        <PreferenceScreen
-                android:key="@string/preference_key_social"
-                android:title="@string/preferences_screen_social_title"
-                android:summary="@string/preferences_screen_social_summary_signed_out"/>
-    </PreferenceCategory>
     <PreferenceCategory android:title="@string/preferences_category_advanced">
         <PreferenceScreen
                 android:title="@string/preferences_category_advanced"
@@ -135,6 +128,11 @@
             android:title="@string/preferences_analytics_title"
             android:summary="@string/preferences_analytics_summary"
             android:defaultValue="true"/>
+        <CheckBoxPreference
+            android:key="@string/preferences_key_travel_behavior"
+            android:title="@string/preferences_travel_behavior_title"
+            android:summary="@string/preferences_travel_behavior_summary"
+            android:defaultValue="false"/>
         <Preference
                 android:key="@string/preference_key_tutorial"
                 android:title="@string/preferences_tutorial_title"

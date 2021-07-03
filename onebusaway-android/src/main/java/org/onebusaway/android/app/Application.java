@@ -27,9 +27,12 @@ import android.hardware.GeomagneticField;
 import android.location.Location;
 import android.location.LocationManager;
 import android.os.Build;
+import android.os.PowerManager;
 import android.preference.PreferenceManager;
 import android.text.TextUtils;
 import android.util.Log;
+
+import androidx.multidex.MultiDexApplication;
 
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
@@ -37,7 +40,6 @@ import com.google.android.gms.common.api.GoogleApiClient;
 import com.google.android.gms.location.FusedLocationProviderClient;
 import com.google.android.gms.tasks.Task;
 import com.google.firebase.analytics.FirebaseAnalytics;
-import com.microsoft.embeddedsocial.sdk.EmbeddedSocial;
 
 import org.onebusaway.android.BuildConfig;
 import org.onebusaway.android.R;
@@ -45,11 +47,8 @@ import org.onebusaway.android.io.ObaAnalytics;
 import org.onebusaway.android.io.ObaApi;
 import org.onebusaway.android.io.elements.ObaRegion;
 import org.onebusaway.android.provider.ObaContract;
-import org.onebusaway.android.report.ui.util.SocialReportHandler;
-import org.onebusaway.android.ui.social.SocialAppProfile;
-import org.onebusaway.android.ui.social.SocialNavigationDrawerHandler;
+import org.onebusaway.android.travelbehavior.TravelBehaviorManager;
 import org.onebusaway.android.util.BuildFlavorUtils;
-import org.onebusaway.android.util.EmbeddedSocialUtils;
 import org.onebusaway.android.util.LocationUtils;
 import org.onebusaway.android.util.PreferenceUtils;
 
@@ -58,11 +57,6 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.UUID;
 
-import androidx.annotation.NonNull;
-import androidx.lifecycle.DefaultLifecycleObserver;
-import androidx.lifecycle.LifecycleOwner;
-import androidx.lifecycle.ProcessLifecycleOwner;
-import androidx.multidex.MultiDexApplication;
 import edu.usf.cutr.open311client.Open311Manager;
 import edu.usf.cutr.open311client.models.Open311Option;
 
@@ -96,9 +90,6 @@ public class Application extends MultiDexApplication {
     // Magnetic declination is based on location, so track this centrally too.
     static GeomagneticField mGeomagneticField = null;
 
-    // Workaround for #933 until ES SDK doesn't run Services in the background
-    static boolean mEmbeddedSocialInitiated = false;
-
     private FirebaseAnalytics mFirebaseAnalytics;
 
     @Override
@@ -108,16 +99,6 @@ public class Application extends MultiDexApplication {
         mApp = this;
         mPrefs = PreferenceManager.getDefaultSharedPreferences(this);
 
-        // Make sure ES SDK only runs when the app is in the foreground
-        // (Workaround for #933 until ES SDK doesn't run Services in the background)
-        ProcessLifecycleOwner.get().getLifecycle().addObserver(
-                new DefaultLifecycleObserver() {
-                    @Override
-                    public void onStart(@NonNull LifecycleOwner owner) {
-                        setUpSocial();
-                    }
-                });
-
         initOba();
         initObaRegion();
         initOpen311(getCurrentRegion());
@@ -125,6 +106,8 @@ public class Application extends MultiDexApplication {
         reportAnalytics();
 
         createNotificationChannels();
+
+        TravelBehaviorManager.startCollectingData(getApplicationContext());
     }
 
     /**
@@ -564,25 +547,6 @@ public class Application extends MultiDexApplication {
     }
 
     /**
-     * Initializes Embedded Social if the device and current build support social functionality
-     * This method is only public as a workaround to avoid running ES SDK in the background - see
-     * #953.  When ES SDK no longer runs servers in the background this can be made private again
-     * and all ES SDK initialization can happen in Application.onCreate().
-     */
-    public synchronized void setUpSocial() {
-        if (!mEmbeddedSocialInitiated) {
-            if (EmbeddedSocialUtils.isBuildVersionSupportedBySocial() &&
-                    EmbeddedSocialUtils.isSocialApiKeyDefined()) {
-                EmbeddedSocial.init(mApp, R.raw.embedded_social_config, BuildConfig.EMBEDDED_SOCIAL_API_KEY, null);
-                EmbeddedSocial.setReportHandler(new SocialReportHandler());
-                EmbeddedSocial.setNavigationDrawerHandler(new SocialNavigationDrawerHandler());
-                EmbeddedSocial.setAppProfile(new SocialAppProfile());
-            }
-            mEmbeddedSocialInitiated = true;
-        }
-    }
-
-    /**
      * Method to check whether bikeshare layer is enabled or not.
      *
      * @return true if the bikeshare layer is an option that can be toggled on/off
@@ -623,4 +587,17 @@ public class Application extends MultiDexApplication {
         }
     }
 
+    public static Boolean isIgnoringBatteryOptimizations(Context applicationContext) {
+        PowerManager pm = (PowerManager) applicationContext.getSystemService(Context.POWER_SERVICE);
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.M &&
+                pm.isIgnoringBatteryOptimizations(applicationContext.getPackageName())) {
+            return true;
+        }
+
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) {
+            return null;
+        }
+
+        return false;
+    }
 }

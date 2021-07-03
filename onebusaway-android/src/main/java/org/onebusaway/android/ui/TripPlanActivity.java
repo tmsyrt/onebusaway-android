@@ -31,6 +31,9 @@ import android.view.ViewTreeObserver;
 import android.widget.ListView;
 import android.widget.Toast;
 
+import androidx.appcompat.app.AppCompatActivity;
+import androidx.fragment.app.Fragment;
+
 import com.google.firebase.analytics.FirebaseAnalytics;
 import com.sothree.slidinguppanel.ScrollableViewHelper;
 import com.sothree.slidinguppanel.SlidingUpPanelLayout;
@@ -41,16 +44,14 @@ import org.onebusaway.android.directions.tasks.TripRequest;
 import org.onebusaway.android.directions.util.OTPConstants;
 import org.onebusaway.android.directions.util.TripRequestBuilder;
 import org.onebusaway.android.io.ObaAnalytics;
+import org.onebusaway.android.travelbehavior.TravelBehaviorManager;
 import org.onebusaway.android.util.LocationUtils;
 import org.onebusaway.android.util.UIUtils;
 import org.opentripplanner.api.model.Itinerary;
+import org.opentripplanner.api.model.TripPlan;
 import org.opentripplanner.api.ws.Message;
 
 import java.util.ArrayList;
-import java.util.List;
-
-import androidx.appcompat.app.AppCompatActivity;
-import androidx.fragment.app.Fragment;
 
 
 public class TripPlanActivity extends AppCompatActivity implements TripRequest.Callback,
@@ -156,7 +157,7 @@ public class TripPlanActivity extends AppCompatActivity implements TripRequest.C
             fragment.setArguments(bundle);
             fragment.setListener(this);
             getSupportFragmentManager().beginTransaction()
-                    .add(R.id.trip_plan_fragment_container, fragment).commit();
+                    .add(R.id.trip_plan_fragment_container, fragment, TripPlanFragment.TAG).commit();
         }
 
         mPanel = (SlidingUpPanelLayout) findViewById(R.id.trip_plan_sliding_layout);
@@ -310,12 +311,13 @@ public class TripPlanActivity extends AppCompatActivity implements TripRequest.C
     }
 
     @Override
-    public void onTripRequestComplete(List<Itinerary> itineraries, String url) {
+    public void onTripRequestComplete(TripPlan tripPlan, String url) {
+        TravelBehaviorManager.saveTripPlan(tripPlan, url, getApplicationContext());
         // Send intent to ourselves...
         Intent intent = new Intent(this, TripPlanActivity.class)
                 .setAction(Intent.ACTION_MAIN)
                 .addFlags(Intent.FLAG_ACTIVITY_SINGLE_TOP)
-                .putExtra(OTPConstants.ITINERARIES, (ArrayList<Itinerary>) itineraries)
+                .putExtra(OTPConstants.ITINERARIES, (ArrayList<Itinerary>) tripPlan.getItinerary())
                 .putExtra(OTPConstants.INTENT_SOURCE, OTPConstants.Source.ACTIVITY)
                 .putExtra(PLAN_REQUEST_URL, url);
         startActivity(intent);
